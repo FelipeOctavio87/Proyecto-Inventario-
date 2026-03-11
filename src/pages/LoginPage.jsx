@@ -24,12 +24,15 @@ const LoginPage = () => {
 
     // MVP: autenticación simulada (sin backend)
     login(email.trim())
-    navigate('/', { replace: true })
+    navigate('/import', { replace: true })
   }
 
   return (
     <div className="page login-page">
       <section className="login">
+        <div className="login__logo-wrap">
+          <img src="/logo.png" alt="Inventario - Sistema de Control" className="login__logo" />
+        </div>
         <h2 className="login__title">Iniciar sesión</h2>
         <form className="login__form" onSubmit={handleSubmit}>
           {error && <p className="login__error" role="alert">{error}</p>}

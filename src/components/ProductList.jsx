@@ -21,7 +21,6 @@ const ProductList = () => {
     return (
       <section className="product-list">
         <h2 className="product-list__title">Inventario de bienes muebles e inmuebles</h2>
-        <p className="product-list__subtitle">Corte 28.02.2026 – SLEP Litoral (Ley N° 24.040)</p>
         <div className="product-list__empty" role="status">
           <p className="product-list__empty-text">
             No hay bienes cargados. Los bienes se muestran aquí solo después de cargar un archivo CSV en la pestaña
@@ -38,7 +37,6 @@ const ProductList = () => {
   return (
     <section className="product-list">
       <h2 className="product-list__title">Inventario de bienes muebles e inmuebles</h2>
-      <p className="product-list__subtitle">Corte 28.02.2026 – SLEP Litoral (Ley N° 24.040)</p>
       <p className="product-list__pagination-info">
         Mostrando {from}-{to} de {totalCount} bienes
       </p>

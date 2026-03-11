@@ -21,15 +21,17 @@ const ImportPage = () => {
   const { addBienesFromImport, totalCount } = useInventory()
   const navigate = useNavigate()
 
-  const processCsv = (text) => {
+  const processCsv = (text, source = 'paste') => {
     const { valid, errors } = parseCsvBienes(text)
     if (valid.length > 0) {
       addBienesFromImport(valid)
     }
-    setResult({ imported: valid.length, errors })
+    setResult({ imported: valid.length, errors, fileName: source === 'file' ? file?.name : null })
     setPaste('')
-    setFile(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    if (source === 'paste') {
+      setFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
   }
 
   const handleFileChange = (e) => {
@@ -38,7 +40,7 @@ const ImportPage = () => {
     setFile(f)
     const reader = new FileReader()
     reader.onload = (ev) => {
-      processCsv(ev.target?.result ?? '')
+      processCsv(ev.target?.result ?? '', 'file')
     }
     reader.readAsText(f, 'UTF-8')
   }
@@ -78,6 +80,11 @@ const ImportPage = () => {
               onChange={handleFileChange}
               className="import__file"
             />
+            {file && (
+              <p className="import__file-name" role="status">
+                Archivo seleccionado: <strong>{file.name}</strong>
+              </p>
+            )}
           </div>
 
           <div className="import__block">
@@ -110,6 +117,9 @@ const ImportPage = () => {
         {result && (
           <div className={`import__result import__result--${result.errors?.length ? 'partial' : 'ok'}`} role="status">
             <p><strong>{result.imported} bienes importados</strong> correctamente.</p>
+            {result.fileName && (
+              <p className="import__result-file">Archivo cargado: <strong>{result.fileName}</strong></p>
+            )}
             {result.errors?.length > 0 && (
               <p>Filas con error: {result.errors.length}. Primeras: {result.errors.slice(0, 3).map((e) => `Fila ${e.row}: ${e.message}`).join('; ')}.</p>
             )}

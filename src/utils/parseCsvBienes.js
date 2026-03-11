@@ -47,13 +47,13 @@ const mapHeaders = (rawHeaders) => {
   return rawHeaders.map((h, i) => {
     const n = normalized[i]
     if (n === 'codigoinventario' || n === 'codigo' || n === 'sku') return 'codigoInventario'
-    if (n === 'nombre' || n === 'name') return 'name'
+    if (n === 'nombre' || n === 'name' || n === 'producto') return 'name'
     if (n === 'tipobien' || n === 'tipo') return 'tipoBien'
     if (n === 'descripcion' || n === 'description') return 'description'
-    if (n === 'cantidad' || n === 'quantity') return 'quantity'
-    if (n === 'valorlibros' || n === 'valor' || n === 'valorlibro') return 'valorLibros'
+    if (n === 'cantidad' || n === 'quantity' || n === 'unidades') return 'quantity'
+    if (n === 'valorlibros' || n === 'valor' || n === 'valorlibro' || n === 'costounitario' || n === 'costo') return 'valorLibros'
     if (n === 'estadoverificacion' || n === 'estado') return 'estadoVerificacion'
-    return DEFAULT_HEADERS[i] ?? `col${i}`
+    return `col${i}`
   })
 }
 

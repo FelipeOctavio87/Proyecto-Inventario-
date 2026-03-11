@@ -93,11 +93,25 @@ body {
 
 .login {
   width: 100%;
-  max-width: 360px;
+  max-width: 400px;
   padding: 2rem;
   border: 1px solid #333;
   border-radius: 8px;
   background-color: #1a1a1a;
+}
+
+.login__logo-wrap {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.login__logo {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
 }
 
 .login__title {
@@ -341,6 +355,17 @@ body {
 .import__file {
   margin-top: 0.5rem;
   font-size: 0.9rem;
+}
+
+.import__file-name {
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+  color: var(--color-text-secondary, #888);
+}
+
+.import__result-file {
+  margin-top: 0.25rem;
+  font-size: 0.95rem;
 }
 
 .import__textarea {
