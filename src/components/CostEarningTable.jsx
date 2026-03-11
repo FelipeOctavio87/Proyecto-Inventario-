@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useProducts } from '../hooks/useProducts'
 import { usePagination } from '../hooks/usePagination'
 import { TIPO_BIEN } from '../types/product'
@@ -15,17 +16,32 @@ const CostEarningTable = () => {
     return <p className="cost-earning__loading">Cargando...</p>
   }
 
+  if (totalCount === 0) {
+    return (
+      <section className="cost-earning">
+        <h2 className="cost-earning__title">Valorización de activos</h2>
+        <p className="cost-earning__subtitle">Conciliación contable y valor en libros – informe al 06.04.2026</p>
+        <div className="cost-earning__empty" role="status">
+          <p className="cost-earning__empty-text">
+            No hay bienes cargados. Cargue un archivo CSV en <strong>Cargar inventario</strong> para ver la valorización.
+          </p>
+          <Link to="/import" className="cost-earning__empty-link">
+            Ir a Cargar inventario
+          </Link>
+        </div>
+      </section>
+    )
+  }
+
   const totalGeneral = products.reduce((sum, p) => sum + totalValorizacion(p), 0)
 
   return (
     <section className="cost-earning">
       <h2 className="cost-earning__title">Valorización de activos</h2>
       <p className="cost-earning__subtitle">Conciliación contable y valor en libros – informe al 06.04.2026</p>
-      {totalCount > 0 && (
-        <p className="cost-earning__pagination-info">
-          Mostrando {from}-{to} de {totalCount} bienes
-        </p>
-      )}
+      <p className="cost-earning__pagination-info">
+        Mostrando {from}-{to} de {totalCount} bienes
+      </p>
       <div className="product-table-wrapper">
         <table className="product-table">
           <thead>
