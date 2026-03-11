@@ -36,6 +36,15 @@ export const InventoryProvider = ({ children }) => {
         estadoVerificacion: ['teorico', 'verificado_terreno', 'no_encontrado'].includes(row.estadoVerificacion)
           ? row.estadoVerificacion
           : 'teorico',
+        especificaciones: row.especificaciones ?? '',
+        caracteristicas: row.caracteristicas ?? '',
+        composicion: row.composicion ?? '',
+        material: row.material ?? '',
+        formato: row.formato ?? '',
+        origen: row.origen ?? '',
+        tamano: row.tamano ?? '',
+        certificaciones: row.certificaciones ?? '',
+        imagenesReferenciales: Array.isArray(row.imagenesReferenciales) ? row.imagenesReferenciales : [],
       }))
       return [...prev, ...newItems]
     })

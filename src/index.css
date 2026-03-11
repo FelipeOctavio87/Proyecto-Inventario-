@@ -419,6 +419,228 @@ body {
   margin-top: 0;
 }
 
+.product-list__ficha-btn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: #646cff;
+  background: transparent;
+  border: 1px solid #646cff;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.product-list__ficha-btn:hover {
+  background-color: rgba(100, 108, 255, 0.1);
+}
+
+/* Ficha técnica modal */
+.ficha-tecnica-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.ficha-tecnica-overlay__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  cursor: pointer;
+}
+
+.ficha-tecnica {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  overflow: auto;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.ficha-tecnica__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #333;
+  position: sticky;
+  top: 0;
+  background: #1a1a1a;
+  z-index: 1;
+}
+
+.ficha-tecnica__title {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.ficha-tecnica__close {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.8);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.ficha-tecnica__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ficha-tecnica__body {
+  padding: 1.25rem;
+}
+
+.ficha-tecnica__product-name {
+  margin: 0 0 0.25rem;
+  font-size: 1.125rem;
+}
+
+.ficha-tecnica__codigo {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.ficha-tecnica__imagenes {
+  margin-bottom: 1rem;
+}
+
+.ficha-tecnica__imagenes h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.ficha-tecnica__imagenes-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ficha-tecnica__img {
+  max-width: 120px;
+  max-height: 120px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #333;
+}
+
+.ficha-tecnica__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.ficha-tecnica__th {
+  padding: 0.5rem 1rem 0.5rem 0;
+  text-align: left;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  vertical-align: top;
+  width: 140px;
+}
+
+.ficha-tecnica__td {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #333;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Ficha card (catálogo) */
+.ficha-card {
+  padding: 1.25rem;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ficha-card__header {
+  border-bottom: 1px solid #333;
+  padding-bottom: 0.75rem;
+}
+
+.ficha-card__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+}
+
+.ficha-card__codigo {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.ficha-card__imagenes {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ficha-card__img {
+  max-width: 80px;
+  max-height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #333;
+}
+
+.ficha-card__body {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.ficha-card__line {
+  margin: 0 0 0.35rem;
+}
+
+.ficha-card__line strong {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* Catálogo page */
+.catalogo__loading {
+  text-align: center;
+  padding: 2rem;
+}
+
+.catalogo__title {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.catalogo__subtitle {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 1rem;
+}
+
+.catalogo__pagination-info {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 1rem;
+}
+
+.catalogo__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
@@ -505,5 +727,62 @@ body {
   }
   .import__format code {
     background: #eee;
+  }
+  .product-list__ficha-btn {
+    color: #535bf2;
+    border-color: #535bf2;
+  }
+  .product-list__ficha-btn:hover {
+    background-color: rgba(83, 91, 242, 0.1);
+  }
+  .ficha-tecnica {
+    background: #fff;
+    border-color: #e0e0e0;
+  }
+  .ficha-tecnica__header {
+    background: #fff;
+    border-bottom-color: #e0e0e0;
+  }
+  .ficha-tecnica__close {
+    color: #333;
+  }
+  .ficha-tecnica__close:hover {
+    background: #eee;
+  }
+  .ficha-tecnica__codigo {
+    color: #555;
+  }
+  .ficha-tecnica__th {
+    color: #333;
+  }
+  .ficha-tecnica__td {
+    border-bottom-color: #eee;
+    color: #444;
+  }
+  .ficha-tecnica__img {
+    border-color: #ddd;
+  }
+  .ficha-card {
+    background: #f9f9f9;
+    border-color: #e0e0e0;
+  }
+  .ficha-card__header {
+    border-bottom-color: #e0e0e0;
+  }
+  .ficha-card__codigo {
+    color: #666;
+  }
+  .ficha-card__img {
+    border-color: #ddd;
+  }
+  .ficha-card__body {
+    color: #444;
+  }
+  .ficha-card__line strong {
+    color: #333;
+  }
+  .catalogo__subtitle,
+  .catalogo__pagination-info {
+    color: #666;
   }
 }

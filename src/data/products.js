@@ -1,18 +1,6 @@
 /**
- * Datos dummy de bienes para el inventario (Municipalidad de Algarrobo / SLEP Litoral).
- * Incluye tipo mueble/inmueble, codificación, valorización y estado de verificación.
- * @typedef {Object} Product
- * @property {number} id
- * @property {string} name
- * @property {string} sku - Código SKU / referencia
- * @property {string} codigoInventario - Codificación para inventario y rotulación
- * @property {string} tipoBien - 'mueble' | 'inmueble'
- * @property {string} description
- * @property {number} quantity
- * @property {number} price
- * @property {number} cost
- * @property {number} valorLibros - Valorización / valor en libros (CLP)
- * @property {string} estadoVerificacion - 'teorico' | 'verificado_terreno' | 'no_encontrado'
+ * Datos dummy de bienes (Municipalidad de Algarrobo / SLEP Litoral).
+ * Incluye ficha técnica y catálogo: especificaciones, material, certificaciones, imágenes, etc.
  */
 
 export const products = [
@@ -28,6 +16,15 @@ export const products = [
     cost: 620,
     valorLibros: 750000,
     estadoVerificacion: 'verificado_terreno',
+    especificaciones: 'Pantalla 15,6" FHD, Procesador Intel Core i5, 8GB RAM DDR4, 256GB SSD NVMe, WiFi 6, Bluetooth 5.',
+    caracteristicas: 'Teclado español, webcam HD, puertos USB 3.0 y USB-C, HDMI.',
+    composicion: 'Chasis plástico reforzado, bisagras metálicas.',
+    material: 'Plástico ABS, aluminio en base.',
+    formato: 'Portátil, 36 x 24 x 2 cm (cerrado).',
+    origen: 'Importado, fabricado en China.',
+    tamano: '15,6 pulgadas; peso aprox. 1,8 kg.',
+    certificaciones: 'Energy Star, EPEAT, WEEE.',
+    imagenesReferenciales: [],
   },
   {
     id: 2,
@@ -41,6 +38,15 @@ export const products = [
     cost: 165,
     valorLibros: 220000,
     estadoVerificacion: 'verificado_terreno',
+    especificaciones: 'Panel IPS 24", resolución 1920x1080, 75 Hz, 5 ms, HDMI y VGA.',
+    caracteristicas: 'Antirreflejo, ajuste de inclinación, soporte VESA.',
+    composicion: 'Pantalla LCD IPS, marco plástico, base metálica.',
+    material: 'Plástico, metal.',
+    formato: 'Monitor de escritorio, 55 x 21 x 40 cm (con base).',
+    origen: 'Importado.',
+    tamano: '24 pulgadas (60,96 cm diagonal).',
+    certificaciones: 'TCO Certified, Energy Star.',
+    imagenesReferenciales: [],
   },
   {
     id: 3,
@@ -54,6 +60,15 @@ export const products = [
     cost: 48,
     valorLibros: 85000,
     estadoVerificacion: 'teorico',
+    especificaciones: 'Mesa rectangular, superficie laminada, estructura de tubo metálico.',
+    caracteristicas: 'Canto redondeado, patas regulables en altura.',
+    composicion: 'Tablero aglomerado con melamina, patas de acero.',
+    material: 'Aglomerado, melamina, acero.',
+    formato: 'Rectangular, 120 x 60 x 75 cm.',
+    origen: 'Nacional.',
+    tamano: '1,20 m ancho x 0,60 m fondo x 0,75 m alto.',
+    certificaciones: '',
+    imagenesReferenciales: [],
   },
   {
     id: 4,
@@ -67,6 +82,15 @@ export const products = [
     cost: 18,
     valorLibros: 45000,
     estadoVerificacion: 'verificado_terreno',
+    especificaciones: 'Respaldo y asiento regulables, reposabrazos, base de 5 ruedas.',
+    caracteristicas: 'Malla transpirable en respaldo, espuma en asiento.',
+    composicion: 'Estructura metálica, malla sintética, espuma de poliuretano.',
+    material: 'Acero, malla, espuma, nylon.',
+    formato: 'Silla de oficina con ruedas.',
+    origen: 'Importado.',
+    tamano: 'Ajustable; aprox. 65 x 65 x 110 cm (alto máx.).',
+    certificaciones: 'BIFMA.',
+    imagenesReferenciales: [],
   },
   {
     id: 5,
@@ -80,5 +104,14 @@ export const products = [
     cost: 0,
     valorLibros: 12500000,
     estadoVerificacion: 'verificado_terreno',
+    especificaciones: 'Oficina en planta baja, iluminación natural, instalación eléctrica y climatización.',
+    caracteristicas: 'Ventanas a calle, baño contiguo.',
+    composicion: 'Construcción en hormigón y tabiquería.',
+    material: 'Hormigón, yeso, vidrio.',
+    formato: 'Local rectangular, 45 m² útiles.',
+    origen: 'Nacional.',
+    tamano: '45 m² (aprox. 6 x 7,5 m).',
+    certificaciones: '',
+    imagenesReferenciales: [],
   },
 ]

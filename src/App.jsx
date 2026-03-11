@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthContext'
 import ProductsPage from './pages/ProductsPage'
 import CostEarningPage from './pages/CostEarningPage'
 import ImportPage from './pages/ImportPage'
+import CatalogoPage from './pages/CatalogoPage'
 import LoginPage from './pages/LoginPage'
 
 const Nav = () => {
@@ -24,6 +25,9 @@ const Nav = () => {
       </NavLink>
       <NavLink to="/import" className={({ isActive }) => (isActive ? 'app__nav-link app__nav-link--active' : 'app__nav-link')}>
         Cargar inventario
+      </NavLink>
+      <NavLink to="/catalogo" className={({ isActive }) => (isActive ? 'app__nav-link app__nav-link--active' : 'app__nav-link')}>
+        Catálogo
       </NavLink>
       {isLoggedIn ? (
         <span className="app__nav-user">
@@ -51,6 +55,7 @@ const App = () => (
       <Route path="/" element={<ProductsPage />} />
       <Route path="/cost-earning" element={<CostEarningPage />} />
       <Route path="/import" element={<ImportPage />} />
+      <Route path="/catalogo" element={<CatalogoPage />} />
       <Route path="/login" element={<LoginPage />} />
     </Routes>
   </main>

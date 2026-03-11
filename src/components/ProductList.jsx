@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { useProducts } from '../hooks/useProducts'
 import { usePagination } from '../hooks/usePagination'
 import { TIPO_BIEN, ESTADO_VERIFICACION } from '../types/product'
+import FichaTecnicaModal from './FichaTecnicaModal'
 
 const formatCLP = (value) =>
   new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value ?? 0)
@@ -8,6 +10,7 @@ const formatCLP = (value) =>
 const ProductList = () => {
   const { products, loading } = useProducts()
   const { pageItems, currentPage, totalPages, totalCount, prevPage, nextPage, from, to } = usePagination(products)
+  const [fichaProduct, setFichaProduct] = useState(null)
 
   if (loading) {
     return <p className="product-list__loading">Cargando bienes...</p>
@@ -33,6 +36,7 @@ const ProductList = () => {
               <th>Cantidad</th>
               <th>Valor en libros</th>
               <th>Estado verificación</th>
+              <th>Ficha técnica</th>
             </tr>
           </thead>
           <tbody>
@@ -45,6 +49,15 @@ const ProductList = () => {
                 <td>{product.quantity}</td>
                 <td>{formatCLP(product.valorLibros)}</td>
                 <td>{ESTADO_VERIFICACION[product.estadoVerificacion] ?? product.estadoVerificacion}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="product-list__ficha-btn"
+                    onClick={() => setFichaProduct(product)}
+                  >
+                    Ver ficha
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -62,6 +75,9 @@ const ProductList = () => {
             Siguiente
           </button>
         </nav>
+      )}
+      {fichaProduct && (
+        <FichaTecnicaModal product={fichaProduct} onClose={() => setFichaProduct(null)} />
       )}
     </section>
   )
