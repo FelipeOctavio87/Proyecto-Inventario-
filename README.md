@@ -1,16 +1,45 @@
-# React + Vite
+# Sistema de Inventario de Bienes – SLEP Litoral
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicación web para la **actualización de inventario de bienes muebles e inmuebles** en el marco del traspaso **SLEP Litoral** (Ley N° 24.040), en respuesta al llamado de la **Municipalidad de Algarrobo**.
 
-Currently, two official plugins are available:
+**Referencia:** [Mercado Público – Ficha 2687-34-COT26](https://buscador.mercadopublico.cl/ficha?code=2687-34-COT26)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Alcance del proyecto (resumen del llamado)
 
-## React Compiler
+- Inventario de **9.000 bienes de uso** al **28.02.2026**
+- Levantamiento mediante **inventario ciego** con **verificación en terreno** a partir del inventario teórico
+- **Codificación y rotulación** de bienes muebles
+- **Conciliación contable** y **valorización de activos**
+- Toma de inventario en **marzo**; entrega de **informe hasta el 06 de abril de 2026**
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Requisitos detallados y mapeo al sistema: **[docs/REQUIREMENTS_ALGARROBO.md](docs/REQUIREMENTS_ALGARROBO.md)**.
 
-## Expanding the ESLint configuration
+## Stack
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- **Frontend:** React 18 + Vite, React Router
+- **Estado:** Context (auth), hooks (datos)
+- **Estilos:** CSS global (BEM)
+
+## Cómo ejecutar
+
+```bash
+npm install
+npm run dev
+```
+
+Abre [http://localhost:3000](http://localhost:3000).
+
+## Estructura principal
+
+- **Bienes:** listado en tabla (nombre, código, tipo, cantidad, valorización, estado de verificación)
+- **Valorización:** costo y valor en libros por bien
+- **Iniciar sesión:** autenticación (MVP simulada)
+
+## Documentación
+
+- [Requisitos Municipalidad de Algarrobo / SLEP Litoral](docs/REQUIREMENTS_ALGARROBO.md)
+- [Guía de desarrollo backend](docs/BACKEND_GUIDELINE.md)
+
+---
+
+*React + Vite – Template base con ESLint. Ver [Vite](https://vite.dev) y [React](https://react.dev) para más información.*

@@ -1,17 +1,17 @@
-import { useMemo } from 'react'
-import { products } from '../data/products'
+import { useInventory } from '../context/InventoryContext'
 
 /**
- * Hook para obtener la lista de productos.
- * Actualmente usa datos dummy; preparado para migrar a API real.
- * @returns {{ products: Array, loading: boolean }}
+ * Hook para obtener la lista de bienes del inventario.
+ * Los datos pueden crecer por importación CSV (hasta ~9.000 activos).
+ * @returns {{ products: Array, loading: boolean, totalCount: number }}
  */
 export const useProducts = () => {
-  const productsData = useMemo(() => products, [])
+  const { products, totalCount } = useInventory()
   const loading = false
 
   return {
-    products: productsData,
+    products,
     loading,
+    totalCount,
   }
 }

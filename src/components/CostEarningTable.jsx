@@ -1,49 +1,73 @@
 import { useProducts } from '../hooks/useProducts'
+import { usePagination } from '../hooks/usePagination'
+import { TIPO_BIEN } from '../types/product'
 
-const formatCurrency = (value) =>
-  new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value)
+const formatCLP = (value) =>
+  new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value ?? 0)
 
-const earningPerUnit = (product) => (product.price ?? 0) - (product.cost ?? 0)
-const totalEarning = (product) => earningPerUnit(product) * (product.quantity ?? 0)
+const totalValorizacion = (product) => (product.valorLibros ?? 0) * (product.quantity ?? 0)
 
 const CostEarningTable = () => {
   const { products, loading } = useProducts()
+  const { pageItems, currentPage, totalPages, totalCount, prevPage, nextPage, from, to } = usePagination(products)
 
   if (loading) {
     return <p className="cost-earning__loading">Cargando...</p>
   }
 
+  const totalGeneral = products.reduce((sum, p) => sum + totalValorizacion(p), 0)
+
   return (
     <section className="cost-earning">
-      <h2 className="cost-earning__title">Costo y Ganancia por Producto</h2>
+      <h2 className="cost-earning__title">Valorización de activos</h2>
+      <p className="cost-earning__subtitle">Conciliación contable y valor en libros – informe al 06.04.2026</p>
+      {totalCount > 0 && (
+        <p className="cost-earning__pagination-info">
+          Mostrando {from}-{to} de {totalCount} bienes
+        </p>
+      )}
       <div className="product-table-wrapper">
         <table className="product-table">
           <thead>
             <tr>
               <th>Nombre</th>
-              <th>SKU</th>
+              <th>Código</th>
+              <th>Tipo</th>
               <th>Cantidad</th>
-              <th>Precio</th>
-              <th>Costo</th>
-              <th>Ganancia/unidad</th>
-              <th>Ganancia total</th>
+              <th>Valor unitario (libros)</th>
+              <th>Valor total</th>
             </tr>
           </thead>
           <tbody>
-            {products.map((product) => (
+            {pageItems.map((product) => (
               <tr key={product.id}>
                 <td>{product.name}</td>
-                <td>{product.sku}</td>
+                <td>{product.codigoInventario ?? product.sku}</td>
+                <td>{TIPO_BIEN[product.tipoBien] ?? product.tipoBien}</td>
                 <td>{product.quantity}</td>
-                <td>{formatCurrency(product.price)}</td>
-                <td>{formatCurrency(product.cost)}</td>
-                <td className="cost-earning__earning">{formatCurrency(earningPerUnit(product))}</td>
-                <td className="cost-earning__total">{formatCurrency(totalEarning(product))}</td>
+                <td>{formatCLP(product.valorLibros)}</td>
+                <td className="cost-earning__total">{formatCLP(totalValorizacion(product))}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {totalPages > 1 && (
+        <nav className="pagination" aria-label="Paginación">
+          <button type="button" className="pagination__btn" onClick={prevPage} disabled={currentPage <= 1}>
+            Anterior
+          </button>
+          <span className="pagination__text">
+            Página {currentPage} de {totalPages}
+          </span>
+          <button type="button" className="pagination__btn" onClick={nextPage} disabled={currentPage >= totalPages}>
+            Siguiente
+          </button>
+        </nav>
+      )}
+      <p className="cost-earning__footer">
+        <strong>Total valorización ({totalCount} bienes): {formatCLP(totalGeneral)}</strong>
+      </p>
     </section>
   )
 }

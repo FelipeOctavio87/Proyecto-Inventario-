@@ -56,17 +56,321 @@ body {
   background-color: rgba(100, 108, 255, 0.2);
 }
 
+.app__nav-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+.app__nav-email {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.app__nav-logout {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #646cff;
+  background: transparent;
+  border: 1px solid #646cff;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.app__nav-logout:hover {
+  background-color: rgba(100, 108, 255, 0.1);
+}
+
+/* Login */
+.login-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 2rem;
+}
+
+.login {
+  width: 100%;
+  max-width: 360px;
+  padding: 2rem;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background-color: #1a1a1a;
+}
+
+.login__title {
+  margin: 0 0 1.5rem;
+  font-size: 1.5rem;
+}
+
+.login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.login__error {
+  margin: 0;
+  padding: 0.5rem;
+  font-size: 0.875rem;
+  color: #e57373;
+  background-color: rgba(229, 115, 115, 0.15);
+  border-radius: 6px;
+}
+
+.login__label {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.login__input {
+  padding: 0.6rem 0.75rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: inherit;
+  background-color: #242424;
+  border: 1px solid #444;
+  border-radius: 6px;
+}
+
+.login__input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.login__input:focus {
+  outline: none;
+  border-color: #646cff;
+}
+
+.login__submit {
+  margin-top: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: #fff;
+  background-color: #646cff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.login__submit:hover {
+  background-color: #535bf2;
+}
+
+.login__hint {
+  margin: 1.25rem 0 0;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
 /* Product List */
 .product-list__title,
 .cost-earning__title {
   font-size: 1.5rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.product-list__subtitle,
+.cost-earning__subtitle {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0 0 1.5rem;
+}
+
+.cost-earning__footer {
+  margin-top: 1.5rem;
+  font-size: 1rem;
+}
+
+.cost-earning__footer strong {
+  color: #646cff;
 }
 
 .product-list__loading,
 .cost-earning__loading {
   text-align: center;
   padding: 2rem;
+}
+
+.product-list__pagination-info,
+.cost-earning__pagination-info {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 1rem;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.pagination__btn {
+  padding: 0.5rem 1rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: #646cff;
+  background: transparent;
+  border: 1px solid #646cff;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.pagination__btn:hover:not(:disabled) {
+  background-color: rgba(100, 108, 255, 0.1);
+}
+
+.pagination__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination__text {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Import page */
+.import-page {
+  max-width: 640px;
+}
+
+.import__title {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.import__subtitle,
+.import__count {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 1rem;
+}
+
+.import__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.import__block {
+  padding: 1rem;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.import__block-title {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+}
+
+.import__hint {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0 0 0.75rem;
+}
+
+.import__btn {
+  padding: 0.6rem 1.2rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: #fff;
+  background-color: #646cff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.import__btn:hover {
+  background-color: #535bf2;
+}
+
+.import__btn--secondary {
+  background: transparent;
+  color: #646cff;
+  border: 1px solid #646cff;
+}
+
+.import__btn--secondary:hover {
+  background-color: rgba(100, 108, 255, 0.1);
+}
+
+.import__file {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.import__textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.75rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: inherit;
+  background-color: #242424;
+  border: 1px solid #444;
+  border-radius: 6px;
+  margin-bottom: 0.75rem;
+  resize: vertical;
+}
+
+.import__textarea:focus {
+  outline: none;
+  border-color: #646cff;
+}
+
+.import__format {
+  padding: 1rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.75);
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.import__format h4 {
+  margin: 0 0 0.5rem;
+}
+
+.import__format code {
+  display: block;
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  background: #1a1a1a;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  overflow-x: auto;
+}
+
+.import__result {
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.import__result--ok {
+  background-color: rgba(76, 175, 80, 0.15);
+  border-color: #4caf50;
+}
+
+.import__result--partial {
+  background-color: rgba(255, 193, 7, 0.1);
+  border-color: #ffc107;
+}
+
+.import__result p {
+  margin: 0 0 0.5rem;
+}
+
+.import__result .import__btn {
+  margin-top: 0.75rem;
 }
 
 .product-table-wrapper {
@@ -129,6 +433,27 @@ body {
   .app__nav-link--active {
     background-color: rgba(83, 91, 242, 0.15);
   }
+  .app__nav-email {
+    color: #555;
+  }
+  .app__nav-logout {
+    color: #535bf2;
+    border-color: #535bf2;
+  }
+  .app__nav-logout:hover {
+    background-color: rgba(83, 91, 242, 0.1);
+  }
+  .login {
+    border-color: #e0e0e0;
+    background-color: #f9f9f9;
+  }
+  .login__input {
+    background-color: #fff;
+    border-color: #ccc;
+  }
+  .login__input::placeholder {
+    color: #999;
+  }
   .product-table-wrapper {
     border-color: #e0e0e0;
   }
@@ -142,7 +467,43 @@ body {
   .product-table tbody tr:hover {
     background-color: #f9f9f9;
   }
-  .cost-earning__total {
+  .product-list__subtitle,
+  .cost-earning__subtitle,
+  .product-list__pagination-info,
+  .cost-earning__pagination-info {
+    color: #666;
+  }
+  .pagination__text {
+    color: #444;
+  }
+  .pagination__btn {
     color: #535bf2;
+    border-color: #535bf2;
+  }
+  .pagination__btn:hover:not(:disabled) {
+    background-color: rgba(83, 91, 242, 0.1);
+  }
+  .cost-earning__total,
+  .cost-earning__footer strong {
+    color: #535bf2;
+  }
+  .import__subtitle,
+  .import__count {
+    color: #555;
+  }
+  .import__block {
+    border-color: #e0e0e0;
+    background-color: #f5f5f5;
+  }
+  .import__textarea {
+    background-color: #fff;
+    border-color: #ccc;
+  }
+  .import__format {
+    color: #555;
+    background-color: #f5f5f5;
+  }
+  .import__format code {
+    background: #eee;
   }
 }
