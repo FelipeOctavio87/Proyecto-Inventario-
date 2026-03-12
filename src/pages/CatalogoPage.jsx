@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useProducts } from '../hooks/useProducts'
 import { usePagination } from '../hooks/usePagination'
 import FichaTecnicaCard from '../components/FichaTecnicaCard'
+import FichaTecnicaModal from '../components/FichaTecnicaModal'
 
 const PAGE_SIZE = 6
 
@@ -11,6 +13,7 @@ const CatalogoPage = () => {
     products,
     PAGE_SIZE
   )
+  const [selectedProduct, setSelectedProduct] = useState(null)
 
   if (loading) {
     return <p className="catalogo__loading">Cargando catálogo...</p>
@@ -51,9 +54,19 @@ const CatalogoPage = () => {
         </p>
         <div className="catalogo__grid">
           {pageItems.map((product) => (
-            <FichaTecnicaCard key={product.id} product={product} />
+            <FichaTecnicaCard
+              key={product.id}
+              product={product}
+              onPhotoClick={setSelectedProduct}
+            />
           ))}
         </div>
+        {selectedProduct && (
+          <FichaTecnicaModal
+            product={selectedProduct}
+            onClose={() => setSelectedProduct(null)}
+          />
+        )}
         {totalPages > 1 && (
           <nav className="pagination" aria-label="Paginación catálogo">
             <button type="button" className="pagination__btn" onClick={prevPage} disabled={currentPage <= 1}>

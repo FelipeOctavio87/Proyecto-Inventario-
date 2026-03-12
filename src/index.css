@@ -410,6 +410,57 @@ body {
   overflow-x: auto;
 }
 
+.import__mapping-desc {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.import__mapping-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.import__mapping-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.import__mapping-table th,
+.import__mapping-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border: 1px solid #444;
+}
+
+.import__mapping-table th {
+  background: rgba(0, 0, 0, 0.25);
+  font-weight: 600;
+}
+
+.import__mapping-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.import__mapping-ok {
+  color: #4caf50;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.import__mapping-fail {
+  color: #f44336;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.import__format-note {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
 .import__result {
   padding: 1rem;
   border-radius: 8px;
@@ -510,6 +561,7 @@ body {
 .ficha-tecnica-overlay__backdrop {
   position: absolute;
   inset: 0;
+  z-index: 0;
   background: rgba(0, 0, 0, 0.6);
   border: none;
   cursor: pointer;
@@ -517,6 +569,7 @@ body {
 
 .ficha-tecnica {
   position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 640px;
   max-height: 90vh;
@@ -585,6 +638,13 @@ body {
   font-size: 0.95rem;
 }
 
+.ficha-tecnica__imagenes-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
 .ficha-tecnica__imagenes-grid {
   display: flex;
   flex-wrap: wrap;
@@ -597,6 +657,51 @@ body {
   object-fit: cover;
   border-radius: 6px;
   border: 1px solid #333;
+}
+
+.ficha-tecnica__img--placeholder {
+  background-color: #fff;
+  padding: 0.5rem;
+}
+
+.ficha-tecnica__add-photos {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1;
+  min-width: 140px;
+}
+
+.ficha-tecnica__file-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  font-size: 0;
+}
+
+.ficha-tecnica__btn-photos {
+  position: relative;
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  font-weight: 500;
+  color: #fff;
+  background-color: #646cff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ficha-tecnica__btn-photos:hover {
+  background-color: #535bf2;
 }
 
 .ficha-tecnica__table {
@@ -627,6 +732,15 @@ body {
   border-radius: 8px;
   background: #1a1a1a;
   display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1.25rem;
+}
+
+.ficha-card__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
@@ -644,6 +758,34 @@ body {
 .ficha-card__codigo {
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.65);
+}
+
+.ficha-card__photo-wrap {
+  flex-shrink: 0;
+  width: 120px;
+  height: 90px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  overflow: hidden;
+  cursor: pointer;
+  background: #242424;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ficha-card__photo-wrap:hover {
+  border-color: #646cff;
+}
+
+.ficha-card__photo-wrap--placeholder {
+  background: #fff;
+}
+
+.ficha-card__main-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .ficha-card__imagenes {

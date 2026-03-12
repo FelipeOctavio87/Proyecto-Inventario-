@@ -1,22 +1,24 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useInventory } from '../context/InventoryContext'
-import { parseCsvBienes, getCsvTemplateBlob } from '../utils/parseCsvBienes'
+import { parseCsvBienes, getHeaderMapping, EXAMPLE_CSV_HEADER } from '../utils/parseCsvBienes'
 
-const downloadTemplate = () => {
-  const blob = getCsvTemplateBlob()
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'plantilla_inventario_bienes.csv'
-  a.click()
-  URL.revokeObjectURL(url)
+const MAP_LABELS = {
+  codigoInventario: 'Código inventario',
+  name: 'Nombre',
+  tipoBien: 'Tipo de bien',
+  description: 'Descripción',
+  quantity: 'Cantidad',
+  valorLibros: 'Valor en libros',
+  estadoVerificacion: 'Estado verificación',
 }
 
 const ImportPage = () => {
   const [file, setFile] = useState(null)
+  const [fileContent, setFileContent] = useState('')
   const [paste, setPaste] = useState('')
   const [result, setResult] = useState(null)
+  const [mappingPreview, setMappingPreview] = useState(() => getHeaderMapping(EXAMPLE_CSV_HEADER + '\n'))
   const fileInputRef = useRef(null)
   const { addBienesFromImport, totalCount } = useInventory()
   const navigate = useNavigate()
@@ -28,7 +30,10 @@ const ImportPage = () => {
     }
     setResult({ imported: valid.length, errors, fileName: source === 'file' ? file?.name : null })
     setPaste('')
-    if (source === 'paste') {
+    if (source === 'paste' || source === 'file') {
+      if (source === 'file') {
+        setFileContent('')
+      }
       setFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
@@ -40,14 +45,23 @@ const ImportPage = () => {
     setFile(f)
     const reader = new FileReader()
     reader.onload = (ev) => {
-      processCsv(ev.target?.result ?? '', 'file')
+      const text = ev.target?.result ?? ''
+      setFileContent(text)
+      setMappingPreview(getHeaderMapping(text))
+      setResult(null)
     }
     reader.readAsText(f, 'UTF-8')
+  }
+
+  const handleFileUpload = () => {
+    if (!file || !fileContent) return
+    processCsv(fileContent, 'file')
   }
 
   const handlePasteSubmit = (e) => {
     e.preventDefault()
     if (!paste.trim()) return
+    setMappingPreview(getHeaderMapping(paste))
     processCsv(paste)
   }
 
@@ -64,15 +78,7 @@ const ImportPage = () => {
 
         <div className="import__actions">
           <div className="import__block">
-            <h3 className="import__block-title">1. Descargar plantilla CSV</h3>
-            <p className="import__hint">Usa esta plantilla para preparar tus datos con el formato correcto.</p>
-            <button type="button" className="import__btn import__btn--secondary" onClick={downloadTemplate}>
-              Descargar plantilla
-            </button>
-          </div>
-
-          <div className="import__block">
-            <h3 className="import__block-title">2. Subir archivo CSV</h3>
+            <h3 className="import__block-title">1. Subir archivo CSV</h3>
             <input
               ref={fileInputRef}
               type="file"
@@ -85,10 +91,20 @@ const ImportPage = () => {
                 Archivo seleccionado: <strong>{file.name}</strong>
               </p>
             )}
+            {file && (
+              <button
+                type="button"
+                className="import__btn"
+                onClick={handleFileUpload}
+                disabled={!fileContent}
+              >
+                Subir
+              </button>
+            )}
           </div>
 
           <div className="import__block">
-            <h3 className="import__block-title">3. O pegar CSV aquí</h3>
+            <h3 className="import__block-title">2. O pegar CSV aquí</h3>
             <form onSubmit={handlePasteSubmit}>
               <textarea
                 className="import__textarea"
@@ -104,13 +120,40 @@ const ImportPage = () => {
           </div>
         </div>
 
-        <div className="import__format">
-          <h4>Formato del CSV</h4>
-          <p>Encabezado esperado (coma o punto y coma):</p>
-          <code>codigoInventario,name,tipoBien,description,quantity,valorLibros,estadoVerificacion</code>
-          <p>
-            <strong>tipoBien:</strong> mueble | inmueble — <strong>estadoVerificacion:</strong> teorico |
-            verificado_terreno | no_encontrado
+        <div className="import__mapping import__format">
+          <h4>Mapeo de columnas del CSV</h4>
+          <p className="import__mapping-desc">
+            Cada columna de tu archivo se asocia a un campo del sistema. Las columnas reconocidas se marcan con ✓;
+            las que no tienen correspondencia aparecen con ✗ y no se usan en la importación.
+          </p>
+          <div className="import__mapping-table-wrap">
+            <table className="import__mapping-table" role="table">
+              <thead>
+                <tr>
+                  <th>Columna en tu CSV</th>
+                  <th>Mapea a</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mappingPreview.map((row, i) => (
+                  <tr key={i}>
+                    <td>{row.rawHeader || '—'}</td>
+                    <td>{row.ok ? MAP_LABELS[row.mappedTo] ?? row.mappedTo : '—'}</td>
+                    <td>
+                      {row.ok ? (
+                        <span className="import__mapping-ok" aria-label="Mapeado correctamente">✓</span>
+                      ) : (
+                        <span className="import__mapping-fail" aria-label="No mapeado">✗</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="import__format-note">
+            <strong>Campos que reconoce la app:</strong> codigoInventario (o SKU), name (o Producto/Nombre), quantity (o Unidades), valorLibros (o Costo unitario), tipoBien, description, estadoVerificacion.
           </p>
         </div>
 

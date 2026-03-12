@@ -108,6 +108,38 @@ export const parseCsvBienes = (text) => {
   return { valid, errors }
 }
 
+const KNOWN_FIELDS = new Set([
+  'codigoInventario',
+  'name',
+  'tipoBien',
+  'description',
+  'quantity',
+  'valorLibros',
+  'estadoVerificacion',
+])
+
+/**
+ * Obtiene el mapeo de columnas del CSV (solo primera línea) para mostrar en el panel.
+ * @param {string} csvText - Contenido del CSV (o solo la línea de encabezados)
+ * @returns {Array<{ rawHeader: string, mappedTo: string, ok: boolean }>}
+ */
+export const getHeaderMapping = (csvText) => {
+  const lines = String(csvText).split(/\r?\n/).filter((l) => l.trim().length > 0)
+  if (lines.length === 0) return []
+  const separator = detectSeparator(lines[0])
+  const headerLine = parseLine(lines[0], separator)
+  const headers = mapHeaders(headerLine)
+  return headerLine.map((raw, i) => ({
+    rawHeader: raw,
+    mappedTo: headers[i],
+    ok: KNOWN_FIELDS.has(headers[i]),
+  }))
+}
+
+/** Encabezado de ejemplo (Inventario.csv) para mostrar el mapeo por defecto en el panel */
+export const EXAMPLE_CSV_HEADER =
+  'Producto,SKU,Unidades,Costo unitario,Costo Total,Precio venta unitario,Total Venta'
+
 export const CSV_TEMPLATE_HEADER =
   'codigoInventario,name,tipoBien,description,quantity,valorLibros,estadoVerificacion'
 

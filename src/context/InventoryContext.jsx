@@ -50,6 +50,17 @@ export const InventoryProvider = ({ children }) => {
     })
   }, [])
 
+  const addProductImages = useCallback((productId, newImageUrls) => {
+    if (!productId || !Array.isArray(newImageUrls) || newImageUrls.length === 0) return
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId
+          ? { ...p, imagenesReferenciales: [...(p.imagenesReferenciales ?? []), ...newImageUrls] }
+          : p
+      )
+    )
+  }, [])
+
   const resetToInitial = useCallback(() => {
     setProducts(initialProducts)
   }, [])
@@ -57,6 +68,7 @@ export const InventoryProvider = ({ children }) => {
   const value = {
     products,
     addBienesFromImport,
+    addProductImages,
     resetToInitial,
     totalCount: products.length,
   }
