@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useInventory } from '../context/InventoryContext'
 import { parseCsvBienes, getHeaderMapping, EXAMPLE_CSV_HEADER } from '../utils/parseCsvBienes'
+import GestorImagenes from '../components/GestorImagenes'
 
 const MAP_LABELS = {
   codigoInventario: 'Código inventario',
@@ -155,6 +156,11 @@ const ImportPage = () => {
           <p className="import__format-note">
             <strong>Campos que reconoce la app:</strong> codigoInventario (o SKU), name (o Producto/Nombre), quantity (o Unidades), valorLibros (o Costo unitario), tipoBien, description, estadoVerificacion.
           </p>
+        </div>
+
+        <div className="import__block mt-6">
+          <h3 className="import__block-title">3. Gestor de imágenes</h3>
+          <GestorImagenes />
         </div>
 
         {result && (

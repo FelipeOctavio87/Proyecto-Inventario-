@@ -42,6 +42,31 @@ const parseLine = (line, separator) => {
   return result
 }
 
+/**
+ * Sanitiza el SKU/código de inventario para evitar decimales ".0" y notación científica.
+ * @param {string|number} raw - Valor crudo del CSV
+ * @returns {{ value: string, valid: boolean }} Valor limpio y si es válido (no vacío, solo dígitos)
+ */
+export const sanitizeSKU = (raw) => {
+  let s = String(raw ?? '').trim()
+  if (!s) return { value: '', valid: false }
+
+  // Prevención de notación científica: si viene como "8.00000819723E+12" o "1.23e+10"
+  if (/e/i.test(s)) {
+    const n = Number(s)
+    if (!Number.isNaN(n)) {
+      s = Number.isInteger(n) ? String(n) : String(Math.floor(n))
+    }
+  }
+
+  // Quitar punto decimal trailing (ej: 8000008197230.0 → 8000008197230)
+  s = s.replace(/\.0+$/, '')
+
+  // Validación: SKU no vacío y solo dígitos (permite códigos numéricos largos como string)
+  const valid = s.length > 0 && /^\d+$/.test(s)
+  return { value: s, valid }
+}
+
 const mapHeaders = (rawHeaders) => {
   const normalized = rawHeaders.map(normalizeHeader)
   return rawHeaders.map((h, i) => {
@@ -81,7 +106,12 @@ export const parseCsvBienes = (text) => {
     headers.forEach((h, j) => {
       row[h] = values[j] !== undefined ? String(values[j]).trim() : ''
     })
-    const codigo = (row.codigoInventario || row.codigo || row.sku || '').trim()
+    const rawCodigo = row.codigoInventario || row.codigo || row.sku || ''
+    const { value: codigo, valid: skuValid } = sanitizeSKU(rawCodigo)
+    if (rawCodigo.trim() !== '' && !skuValid) {
+      errors.push({ row: i + 1, message: 'SKU Inválido.' })
+      continue
+    }
     const name = (row.name || '').trim() || codigo || `Bien ${i + 1}`
     if (!name) {
       errors.push({ row: i + 1, message: 'Falta nombre o código del bien.' })
@@ -95,6 +125,7 @@ export const parseCsvBienes = (text) => {
     }
     valid.push({
       codigoInventario: codigo || `INV-${i}`,
+      sku: codigo || `INV-${i}`,
       name,
       tipoBien: row.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
       description: (row.description || '').trim(),

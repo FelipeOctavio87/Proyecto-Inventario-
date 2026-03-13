@@ -46,7 +46,7 @@ Sistema de inventario alineado al llamado de la **Municipalidad de Algarrobo** (
 ### 2.5 Valorización de activos
 
 - **Requisito:** Valorización de los activos inventariados.
-- **En el sistema:** Campo **valor en libros** (o valor contable) por bien; reportes de valorización total por tipo, por unidad, etc. El módulo actual “Costo y Ganancia” puede extenderse o renombrarse a **Valorización** para este contexto.
+- **En el sistema:** Campo **valor en libros** (o valor contable) por bien; reportes de valorización total por tipo, por unidad, etc. El módulo actual "Costo y Ganancia" puede extenderse o renombrarse a **Valorización** para este contexto.
 
 ### 2.6 Fechas y plazos
 
@@ -80,7 +80,7 @@ Campos mínimos recomendados para cada **bien**:
 | ubicacion | string, opcional | Oficina, dependencia, dirección (inmuebles) |
 | created_at / updated_at | timestamp | Auditoría |
 
-Para **valorización y conciliación** se pueden reutilizar o extender tablas de “costo/valor” y de movimientos o ajustes según necesidad contable.
+Para **valorización y conciliación** se pueden reutilizar o extender tablas de "costo/valor" y de movimientos o ajustes según necesidad contable.
 
 ---
 

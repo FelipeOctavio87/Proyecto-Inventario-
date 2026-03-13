@@ -4,6 +4,8 @@ import ProductsPage from './pages/ProductsPage'
 import CostEarningPage from './pages/CostEarningPage'
 import ImportPage from './pages/ImportPage'
 import CatalogoPage from './pages/CatalogoPage'
+import TrazabilidadPage from './pages/TrazabilidadPage'
+import ActivityLogPage from './pages/ActivityLogPage'
 import LoginPage from './pages/LoginPage'
 
 const Nav = () => {
@@ -28,6 +30,12 @@ const Nav = () => {
       </NavLink>
       <NavLink to="/catalogo" className={({ isActive }) => (isActive ? 'app__nav-link app__nav-link--active' : 'app__nav-link')}>
         Catálogo
+      </NavLink>
+      <NavLink to="/trazabilidad" className={({ isActive }) => (isActive ? 'app__nav-link app__nav-link--active' : 'app__nav-link')}>
+        Trazabilidad
+      </NavLink>
+      <NavLink to="/actividad" className={({ isActive }) => (isActive ? 'app__nav-link app__nav-link--active' : 'app__nav-link')}>
+        Historial de actividad
       </NavLink>
       <span className="app__nav-user">
         <span className="app__nav-email">{user?.email}</span>
@@ -56,7 +64,7 @@ const App = () => {
   return (
     <main className="app">
       <header className="app__header">
-        <h1>Inventario de Bienes Muebles e Inmuebles</h1>
+        <h1>Sistema de Gestión de Inventario</h1>
         <Nav />
       </header>
       <Routes>
@@ -64,6 +72,8 @@ const App = () => {
         <Route path="/cost-earning" element={<CostEarningPage />} />
         <Route path="/import" element={<ImportPage />} />
         <Route path="/catalogo" element={<CatalogoPage />} />
+        <Route path="/trazabilidad" element={<TrazabilidadPage />} />
+         <Route path="/actividad" element={<ActivityLogPage />} />
         <Route path="/login" element={<Navigate to="/import" replace />} />
       </Routes>
     </main>

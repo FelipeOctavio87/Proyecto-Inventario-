@@ -1,5 +1,5 @@
 /**
- * Contrato de tipo para Bien/Producto (inventario SLEP Litoral).
+ * Contrato de tipo para Bien/Producto (sistema de gestión de inventario).
  * Incluye campos de ficha técnica y catálogo (especificaciones, material, certificaciones, etc.).
  * @typedef {Object} Product
  * @property {number} id
@@ -22,6 +22,7 @@
  * @property {string} [tamano]
  * @property {string} [certificaciones]
  * @property {string[]} [imagenesReferenciales] - URLs de imágenes
+ * @property {number} [version] - Versión de control de concurrencia
  */
 
 export const ProductShape = {
@@ -45,6 +46,7 @@ export const ProductShape = {
   tamano: '',
   certificaciones: '',
   imagenesReferenciales: [],
+  version: 1,
 }
 
 export const TIPO_BIEN = { mueble: 'Mueble', inmueble: 'Inmueble' }
