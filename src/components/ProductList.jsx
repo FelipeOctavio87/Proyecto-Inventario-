@@ -2,16 +2,20 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useProducts } from '../hooks/useProducts'
 import { usePagination } from '../hooks/usePagination'
+import { useInventory } from '../context/InventoryContext'
 import { TIPO_BIEN, ESTADO_VERIFICACION } from '../types/product'
 import FichaTecnicaModal from './FichaTecnicaModal'
+import AddProductModal from './AddProductModal'
 
 const formatCLP = (value) =>
   new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value ?? 0)
 
 const ProductList = () => {
   const { products, loading } = useProducts()
+  const { updateProduct } = useInventory()
   const { pageItems, currentPage, totalPages, totalCount, prevPage, nextPage, from, to } = usePagination(products)
   const [fichaProduct, setFichaProduct] = useState(null)
+  const [showAddProduct, setShowAddProduct] = useState(false)
 
   if (loading) {
     return <p className="product-list__loading">Cargando bienes...</p>
@@ -20,23 +24,32 @@ const ProductList = () => {
   if (totalCount === 0) {
     return (
       <section className="product-list">
-        <h2 className="product-list__title">Inventario de bienes muebles e inmuebles</h2>
+        <h2 className="product-list__title">Inventario de bienes</h2>
         <div className="product-list__empty" role="status">
           <p className="product-list__empty-text">
-            No hay bienes cargados. Los bienes se muestran aquí solo después de cargar un archivo CSV en la pestaña
+            No hay bienes cargados. Puedes añadir ítems individuales aquí o cargar un CSV (solo Administrador) en
             <strong> Cargar inventario</strong>.
           </p>
-          <Link to="/import" className="product-list__empty-link">
-            Ir a Cargar inventario
-          </Link>
+          <div className="product-list__empty-actions">
+            <button type="button" className="import__btn" onClick={() => setShowAddProduct(true)}>
+              Añadir ítem
+            </button>
+            <Link to="/import" className="product-list__empty-link">Ir a Cargar inventario</Link>
+          </div>
         </div>
+        {showAddProduct && <AddProductModal onClose={() => setShowAddProduct(false)} />}
       </section>
     )
   }
 
   return (
     <section className="product-list">
-      <h2 className="product-list__title">Inventario de bienes muebles e inmuebles</h2>
+      <div className="product-list__header">
+        <h2 className="product-list__title">Inventario de bienes</h2>
+        <button type="button" className="import__btn product-list__add-btn" onClick={() => setShowAddProduct(true)}>
+          Añadir ítem
+        </button>
+      </div>
       <p className="product-list__pagination-info">
         Mostrando {from}-{to} de {totalCount} bienes
       </p>
@@ -63,7 +76,18 @@ const ProductList = () => {
                 <td>{product.description}</td>
                 <td>{product.quantity}</td>
                 <td>{formatCLP(product.valorLibros)}</td>
-                <td>{ESTADO_VERIFICACION[product.estadoVerificacion] ?? product.estadoVerificacion}</td>
+                <td>
+                  <select
+                    className="product-list__estado-select"
+                    value={product.estadoVerificacion ?? 'teorico'}
+                    onChange={(e) => updateProduct(product.id, { estadoVerificacion: e.target.value })}
+                    aria-label={`Actualizar estado de ${product.name}`}
+                  >
+                    {Object.entries(ESTADO_VERIFICACION).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </td>
                 <td>
                   <button
                     type="button"
@@ -94,6 +118,7 @@ const ProductList = () => {
       {fichaProduct && (
         <FichaTecnicaModal product={fichaProduct} onClose={() => setFichaProduct(null)} />
       )}
+      {showAddProduct && <AddProductModal onClose={() => setShowAddProduct(false)} />}
     </section>
   )
 }

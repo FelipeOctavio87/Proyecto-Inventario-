@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { ROLES } from '../context/AuthContext'
 
 const LoginPage = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [role, setRole] = useState(ROLES.ADMIN)
   const [error, setError] = useState('')
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -22,8 +24,7 @@ const LoginPage = () => {
       return
     }
 
-    // MVP: autenticación simulada (sin backend)
-    login(email.trim())
+    login(email.trim(), role)
     navigate('/import', { replace: true })
   }
 
@@ -60,6 +61,19 @@ const LoginPage = () => {
             placeholder="••••••••"
             autoComplete="current-password"
           />
+          <label className="login__label">Perfil</label>
+          <select
+            className="login__input login__select"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            aria-label="Seleccionar perfil"
+          >
+            <option value={ROLES.ADMIN}>Administrador</option>
+            <option value={ROLES.COLLABORATOR}>Colaborador</option>
+          </select>
+          <p className="login__role-hint">
+            Administrador: cargas CSV, vaciar inventario, confirmar carga. Colaborador: ítems individuales y actualizar estados.
+          </p>
           <button type="submit" className="login__submit">
             Entrar
           </button>

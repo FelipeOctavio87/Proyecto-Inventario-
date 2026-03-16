@@ -74,31 +74,83 @@ function getSubmitButtonClass(typeValue) {
   return `${base} bg-slate-600 hover:bg-slate-700 text-white`
 }
 
+const NEW_SKU_VALUE = '__new__'
+
 const TrazabilidadPage = () => {
   const { user } = useAuth()
-  const { products, movements, addMovement, logAuditEvent } = useInventory()
+  const { products, movements, addMovement, registerReturnNewSku, logAuditEvent } = useInventory()
   const [productId, setProductId] = useState('')
   const [type, setType] = useState(DEFAULT_TYPE)
   const [quantityInput, setQuantityInput] = useState('')
+  const [newSkuCode, setNewSkuCode] = useState('')
+  const [newSkuName, setNewSkuName] = useState('')
   const [reason, setReason] = useState('')
   const [date, setDate] = useState(() => getChileNowForInput())
   const [validationError, setValidationError] = useState('')
 
   const responsibleDisplay = user?.email ? `Usuario Autenticado: ${user.email}` : 'Usuario Autenticado: Felipe Rebolledo'
   const reasonRequired = isReasonRequired(type)
+  const isEntrada = getMovementSign(type) === 'entrada'
+  const isNewSkuMode = productId === NEW_SKU_VALUE
 
   const handleSubmit = (e) => {
     e.preventDefault()
     setValidationError('')
 
-    const pid = Number(productId)
-    if (!pid) {
-      setValidationError('Seleccione un producto.')
+    if (reasonRequired && !String(reason || '').trim()) {
+      setValidationError('El motivo es obligatorio para este tipo de movimiento.')
       return
     }
 
-    if (reasonRequired && !String(reason || '').trim()) {
-      setValidationError('El motivo es obligatorio para este tipo de movimiento.')
+    if (isNewSkuMode) {
+      const sku = String(newSkuCode || '').trim()
+      const name = String(newSkuName || '').trim() || sku
+      if (!sku) {
+        setValidationError('Ingrese el código (SKU) del nuevo activo.')
+        return
+      }
+      const existing = products.find(
+        (p) => (p.codigoInventario ?? p.sku ?? '').toString().trim().toLowerCase() === sku.toLowerCase()
+      )
+      if (existing) {
+        setValidationError('Ese SKU ya existe. Use "Seleccionar bien" y elija el producto para registrar la devolución.')
+        return
+      }
+      const result = registerReturnNewSku({
+        codigoInventario: sku,
+        name,
+        type,
+        responsible: responsibleDisplay,
+        reason: String(reason || '').trim() || '—',
+        date: date ? new Date(date).toISOString() : undefined,
+      })
+      if (result) {
+        logAuditEvent({
+          usuario: responsibleDisplay,
+          accion: 'Alta de activo por devolución',
+          actionType: 'STOCK_ADJUST',
+          targetSku: result.codigoInventario,
+          previousValue: 0,
+          newValue: 1,
+          detalle: `Nuevo activo "${result.productName}" (${result.codigoInventario}) creado por movimiento "${MOVEMENT_TYPE_LABELS[type] ?? type}".`,
+          productoId: result.newId,
+          sku: result.codigoInventario,
+          estadoAnterior: { quantity: 0, version: 1 },
+          estadoNuevo: { quantity: 1, version: 1 },
+          reversible: true,
+        })
+      }
+      setProductId('')
+      setNewSkuCode('')
+      setNewSkuName('')
+      setReason('')
+      setDate(getChileNowForInput())
+      return
+    }
+
+    const pid = Number(productId)
+    if (!pid) {
+      setValidationError('Seleccione un producto o registre un SKU nuevo.')
       return
     }
 
@@ -119,14 +171,15 @@ const TrazabilidadPage = () => {
     })
 
     if (product) {
-      const baseVersion = product.version ?? 1
+      const currentQty = Number(product.quantity) || 0
+      const afterQty = Math.max(0, currentQty + effectiveDelta)
+      const baseVersion = Number(product.version) || 1
       const before = {
-        quantity: product.quantity ?? 0,
+        quantity: currentQty,
         version: baseVersion,
       }
-      const afterQuantity = Math.max(0, (product.quantity ?? 0) + effectiveDelta)
       const after = {
-        quantity: afterQuantity,
+        quantity: afterQty,
         version: baseVersion + 1,
       }
       logAuditEvent({
@@ -134,8 +187,8 @@ const TrazabilidadPage = () => {
         accion: 'Ajuste de Stock',
         actionType: 'STOCK_ADJUST',
         targetSku: product.codigoInventario ?? product.sku,
-        previousValue: before.quantity,
-        newValue: after.quantity,
+        previousValue: currentQty,
+        newValue: afterQty,
         detalle: `Movimiento "${MOVEMENT_TYPE_LABELS[type]}" sobre "${product.name}" (${product.codigoInventario ?? product.sku ?? 'sin código'}) por ${effectiveDelta} unidades.`,
         productoId: product.id,
         sku: product.codigoInventario ?? product.sku,
@@ -172,22 +225,62 @@ const TrazabilidadPage = () => {
                 value={productId}
                 onChange={(e) => setProductId(e.target.value)}
                 className="w-full text-lg rounded-lg border border-slate-400 bg-slate-100 text-slate-900 px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                required
+                required={!isNewSkuMode}
               >
                 <option value="">Seleccionar bien</option>
+                {isEntrada && (
+                  <option value={NEW_SKU_VALUE}>➕ Devolución / entrada — SKU nuevo (crear activo)</option>
+                )}
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} ({p.codigoInventario ?? p.sku}) — {p.quantity ?? 0} uds.
+                    {p.name} ({p.codigoInventario ?? p.sku}) — {Number(p.quantity) || 0} uds.
                   </option>
                 ))}
               </select>
             </div>
 
+            {isNewSkuMode && (
+              <div className="trazabilidad__new-sku-fields space-y-4 rounded-lg border border-amber-500/50 bg-amber-900/20 p-4">
+                <p className="text-sm font-medium text-amber-200">
+                  El activo no existe en el listado. Se creará un nuevo registro con 1 unidad.
+                </p>
+                <div>
+                  <label className="block text-base font-medium text-slate-200 mb-2">Código (SKU) *</label>
+                  <input
+                    type="text"
+                    value={newSkuCode}
+                    onChange={(e) => setNewSkuCode(e.target.value)}
+                    className="w-full text-lg rounded-lg border border-slate-400 bg-slate-100 text-slate-900 px-4 py-3 focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Ej. INV-RET-2026-001"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-base font-medium text-slate-200 mb-2">Nombre del activo</label>
+                  <input
+                    type="text"
+                    value={newSkuName}
+                    onChange={(e) => setNewSkuName(e.target.value)}
+                    className="w-full text-lg rounded-lg border border-slate-400 bg-slate-100 text-slate-900 px-4 py-3 focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Ej. Equipo devuelto por cliente"
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-base font-medium text-slate-200 mb-2">Tipo de movimiento</label>
               <select
                 value={type}
-                onChange={(e) => setType(e.target.value)}
+                onChange={(e) => {
+                  const newType = e.target.value
+                  setType(newType)
+                  if (getMovementSign(newType) !== 'entrada' && productId === NEW_SKU_VALUE) {
+                    setProductId('')
+                    setNewSkuCode('')
+                    setNewSkuName('')
+                  }
+                }}
                 className="w-full text-lg rounded-lg border border-slate-400 bg-slate-100 text-slate-900 px-4 py-3 focus:ring-2 focus:ring-indigo-500"
               >
                 {Object.entries(MOVEMENT_CATEGORIES).map(([key, cat]) => (
@@ -202,6 +295,7 @@ const TrazabilidadPage = () => {
               </select>
             </div>
 
+            {!isNewSkuMode && (
             <div>
               <label className="block text-base font-medium text-slate-200 mb-2">
                 Cantidad {getMovementSign(type) === 'interno' && '(positivo o negativo)'}
@@ -224,6 +318,7 @@ const TrazabilidadPage = () => {
                 </p>
               )}
             </div>
+            )}
 
             <div>
               <label className="block text-base font-medium text-slate-200 mb-2">Responsable</label>

@@ -67,6 +67,15 @@ body {
   margin-left: auto;
 }
 
+.app__nav-role {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(100, 108, 255, 0.2);
+  color: #646cff;
+}
+
 .app__nav-email {
   font-size: 0.875rem;
   color: rgba(255, 255, 255, 0.7);
@@ -250,6 +259,43 @@ body {
   background-color: rgba(100, 108, 255, 0.1);
 }
 
+.product-list__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.product-list__add-btn {
+  flex-shrink: 0;
+}
+
+.product-list__estado-select {
+  font-size: inherit;
+  padding: 0.25rem 0.5rem;
+  background: #fff;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #1a1a1a;
+  cursor: pointer;
+  min-width: 10rem;
+}
+
+.product-list__estado-select option {
+  background: #fff;
+  color: #1a1a1a;
+}
+
+.product-list__empty-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
 .product-list__pagination-info,
 .cost-earning__pagination-info {
   font-size: 0.9rem;
@@ -300,10 +346,19 @@ body {
 }
 
 .import__subtitle,
+.import__count-block {
+  margin: 0 0 1rem;
+}
+
 .import__count {
   font-size: 0.95rem;
   color: rgba(255, 255, 255, 0.8);
-  margin: 0 0 1rem;
+  margin: 0 0 0.25rem;
+}
+
+.import__count--secondary {
+  font-size: 0.875rem;
+  opacity: 0.85;
 }
 
 .import__actions {
@@ -489,6 +544,115 @@ body {
   margin-top: 0.75rem;
 }
 
+.import__collab-block {
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.import__collab-text {
+  margin: 0 0 0.5rem;
+}
+
+.import__collab-list {
+  margin: 0.5rem 0 1rem 1.25rem;
+  padding: 0;
+}
+
+.import__collab-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.import__radio-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.import__radio-label input {
+  margin-top: 0.2rem;
+}
+
+.import__block--confirm {
+  margin-top: 1rem;
+}
+
+.import__confirm-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.import__btn--danger {
+  background-color: #c62828;
+  color: #fff;
+}
+
+.import__btn--danger:hover {
+  background-color: #b71c1c;
+}
+
+.import__block--vaciar {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #444;
+}
+
+.import__vaciar-desc {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.import__modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.import__modal {
+  background: #242424;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-width: 400px;
+  width: 90%;
+}
+
+.import__modal h3 {
+  margin: 0 0 0.75rem;
+}
+
+.import__modal p {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+}
+
+.import__modal-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.login__select {
+  cursor: pointer;
+}
+
+.login__role-hint {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
 .product-table-wrapper {
   overflow-x: auto;
   border-radius: 8px;
@@ -548,6 +712,78 @@ body {
 
 .product-list__ficha-btn:hover {
   background-color: rgba(100, 108, 255, 0.1);
+}
+
+/* Añadir ítem modal */
+.add-product-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.add-product-modal {
+  background: #2d2d2d;
+  border: 1px solid #4a4a4a;
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-width: 420px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  color: #e4e4e4;
+}
+
+.add-product-modal h3 {
+  margin: 0 0 1rem;
+  color: #f0f0f0;
+}
+
+.add-product-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.add-product-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  color: #d1d5db;
+}
+
+.add-product-input {
+  padding: 0.5rem 0.65rem;
+  font-size: inherit;
+  background: #383838;
+  border: 1px solid #505050;
+  border-radius: 6px;
+  color: #e4e4e4;
+}
+
+.add-product-input::placeholder {
+  color: #9ca3af;
+}
+
+.add-product-input:focus {
+  outline: none;
+  border-color: #646cff;
+  background: #404040;
+}
+
+.add-product-input option {
+  background: #383838;
+  color: #e4e4e4;
+}
+
+.add-product-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
 }
 
 /* Ficha técnica modal */

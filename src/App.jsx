@@ -38,6 +38,9 @@ const Nav = () => {
         Historial de actividad
       </NavLink>
       <span className="app__nav-user">
+        <span className="app__nav-role" title={user?.role === 'administrador' ? 'Administrador' : 'Colaborador'}>
+          {user?.role === 'administrador' ? 'Admin' : 'Colab'}
+        </span>
         <span className="app__nav-email">{user?.email}</span>
         <button type="button" className="app__nav-logout" onClick={handleLogout}>
           Cerrar sesión

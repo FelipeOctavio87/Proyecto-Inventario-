@@ -1,8 +1,12 @@
 import { useCallback, useState, useRef } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Upload, Trash2, Camera, CheckCircle, X } from 'lucide-react'
+import JSZip from 'jszip'
+import { Upload, Trash2, Camera, CheckCircle, X, Loader2 } from 'lucide-react'
 import { useInventory } from '../context/InventoryContext'
 import { useAuth } from '../context/AuthContext'
+
+/** Extensiones de imagen que aceptamos (en dropzone y dentro del ZIP) */
+const IMAGE_EXT = /\.(png|jpe?g|gif|webp)$/i
 
 /** Normaliza SKU: quita .0 final y espacios (sanitización) */
 const normalizeSku = (value) =>
@@ -13,6 +17,21 @@ const normalizeSku = (value) =>
 const getNameWithoutExtension = (filename) => {
   const lastDot = filename.lastIndexOf('.')
   return lastDot > 0 ? filename.slice(0, lastDot) : filename
+}
+
+/** Extrae archivos de imagen de un ZIP y devuelve File[] (nombre = nombre dentro del ZIP, sin rutas) */
+async function extractImagesFromZip(zipFile) {
+  const zip = await JSZip.loadAsync(zipFile)
+  const files = []
+  for (const [path, entry] of Object.entries(zip.files)) {
+    if (entry.dir) continue
+    const baseName = path.replace(/^.*[/\\]/, '')
+    if (!IMAGE_EXT.test(baseName)) continue
+    const blob = await entry.async('blob')
+    const mime = blob.type || (baseName.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg')
+    files.push(new File([blob], baseName, { type: mime }))
+  }
+  return files
 }
 
 const PLACEHOLDER_NO_PHOTO = '/sin-foto.png'
@@ -53,6 +72,7 @@ export default function GestorImagenes() {
   const [lastResult, setLastResult] = useState(null)
   const [showErrors, setShowErrors] = useState(false)
   const [lightboxSrc, setLightboxSrc] = useState(null)
+  const [zipLoading, setZipLoading] = useState(false)
   const fileInputRef = useRef(null)
   const uploadTargetIdRef = useRef(null)
 
@@ -111,9 +131,34 @@ export default function GestorImagenes() {
     [products, addProductImages, logAuditEvent, user]
   )
 
+  const onDrop = useCallback(
+    async (acceptedFiles) => {
+      if (!acceptedFiles?.length) return
+      const imageFiles = acceptedFiles.filter((f) => IMAGE_EXT.test(f.name))
+      const zipFiles = acceptedFiles.filter((f) => /\.zip$/i.test(f.name))
+      let allImages = [...imageFiles]
+      if (zipFiles.length > 0) {
+        setZipLoading(true)
+        try {
+          for (const z of zipFiles) {
+            const extracted = await extractImagesFromZip(z)
+            allImages = allImages.concat(extracted)
+          }
+        } finally {
+          setZipLoading(false)
+        }
+      }
+      if (allImages.length > 0) processFiles(allImages)
+    },
+    [processFiles]
+  )
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: processFiles,
-    accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'] },
+    onDrop,
+    accept: {
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
+      'application/zip': ['.zip'],
+    },
     multiple: true,
   })
 
@@ -216,22 +261,31 @@ export default function GestorImagenes() {
           <>
             <h3 className="text-lg font-semibold text-slate-100 mb-1">Importación Inteligente por SKU</h3>
             <p className="text-sm text-slate-300 mb-4">
-              Suelta tus archivos aquí. El sistema vinculará la foto si el nombre coincide con el SKU del producto (ej:{' '}
-              <code className="bg-slate-700 px-1.5 py-0.5 rounded">8000008164911.jpg</code>).
+              Suelta imágenes o un <strong>ZIP</strong> con fotos nombradas por SKU. El sistema vinculará cada archivo al producto cuyo SKU coincida con el nombre (sin extensión). Ej:{' '}
+              <code className="bg-slate-700 px-1.5 py-0.5 rounded">8000008164911.jpg</code> o un ZIP con muchas así.
             </p>
 
             <div
               {...getRootProps()}
               className={`
-                flex flex-col items-center justify-center min-h-[180px] rounded-lg border-2 border-dashed cursor-pointer
+                relative flex flex-col items-center justify-center min-h-[180px] rounded-lg border-2 border-dashed cursor-pointer
                 transition-colors py-8 px-4
+                ${zipLoading ? 'pointer-events-none opacity-70' : ''}
                 ${isDragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-500 hover:border-slate-400 bg-slate-800/30 hover:bg-slate-700/30'}
               `}
             >
-              <input {...getInputProps()} aria-label="Soltar imágenes para asociar por SKU" />
-              <Upload className="w-12 h-12 text-slate-400 mb-2" strokeWidth={1.5} />
+              <input {...getInputProps()} aria-label="Soltar imágenes o ZIP para asociar por SKU" />
+              {zipLoading ? (
+                <Loader2 className="w-12 h-12 text-indigo-400 mb-2 animate-spin" strokeWidth={1.5} aria-hidden />
+              ) : (
+                <Upload className="w-12 h-12 text-slate-400 mb-2" strokeWidth={1.5} />
+              )}
               <p className="text-slate-300 text-center text-sm">
-                {isDragActive ? 'Suelta las imágenes aquí…' : 'Arrastra imágenes aquí o haz clic para seleccionar'}
+                {zipLoading
+                  ? 'Extrayendo imágenes del ZIP…'
+                  : isDragActive
+                    ? 'Suelta las imágenes o el ZIP aquí…'
+                    : 'Arrastra imágenes o un ZIP aquí, o haz clic para seleccionar'}
               </p>
             </div>
 
@@ -326,21 +380,21 @@ export default function GestorImagenes() {
               <p className="text-slate-400 text-sm">No hay productos. Carga primero un CSV en la sección superior.</p>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-slate-600">
-                <table className="w-full text-sm text-left">
+                <table className="w-full text-sm text-left border-collapse">
                   <thead className="bg-slate-700/50 text-slate-200">
                     <tr>
-                      <th className="px-3 py-2 w-20">Foto</th>
-                      <th className="px-3 py-2">Nombre</th>
-                      <th className="px-3 py-2">SKU</th>
-                      <th className="px-3 py-2 w-32">Acciones</th>
+                      <th className="px-3 py-3 w-20 border-b border-slate-500">Foto</th>
+                      <th className="px-3 py-3 border-b border-slate-500">Nombre</th>
+                      <th className="px-3 py-3 border-b border-slate-500">SKU</th>
+                      <th className="px-3 py-3 w-32 border-b border-slate-500">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="text-slate-300 divide-y divide-slate-600">
+                  <tbody className="text-slate-300">
                     {products.map((p) => {
                       const mainUrl = mainImageUrl(p)
                       return (
-                        <tr key={p.id} className="hover:bg-slate-700/30">
-                          <td className="px-3 py-2">
+                        <tr key={p.id} className="hover:bg-slate-700/30 border-b border-slate-500 last:border-b-0">
+                          <td className="px-3 py-3">
                             <button
                               type="button"
                               onClick={() => mainUrl && setLightboxSrc(mainUrl)}
@@ -353,8 +407,8 @@ export default function GestorImagenes() {
                               />
                             </button>
                           </td>
-                          <td className="px-3 py-2 font-medium text-slate-100">{p.name}</td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-3 font-medium text-slate-100">{p.name}</td>
+                          <td className="px-3 py-3">
                             <span className="inline-flex items-center gap-1.5">
                               {p.codigoInventario ?? p.sku ?? '—'}
                               {hasImage(p) && (
@@ -362,7 +416,7 @@ export default function GestorImagenes() {
                               )}
                             </span>
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-3">
                             <button
                               type="button"
                               onClick={() => {

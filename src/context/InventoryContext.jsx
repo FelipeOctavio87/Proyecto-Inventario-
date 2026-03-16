@@ -62,8 +62,8 @@ export const InventoryProvider = ({ children }) => {
 
         let updated = { ...product }
 
-        if (evt.actionType === 'STOCK_ADJUST' && typeof evt.estadoAnterior.quantity === 'number') {
-          updated.quantity = evt.estadoAnterior.quantity
+        if (evt.actionType === 'STOCK_ADJUST' && evt.estadoAnterior && 'quantity' in evt.estadoAnterior) {
+          updated.quantity = Math.max(0, Number(evt.estadoAnterior.quantity) || 0)
         }
 
         if (
@@ -93,9 +93,16 @@ export const InventoryProvider = ({ children }) => {
     [auditEvents]
   )
 
-  const addBienesFromImport = useCallback((rows) => {
+  /**
+   * Añade o reemplaza bienes desde importación CSV.
+   * @param {Array<Object>} rows - Filas parseadas del CSV
+   * @param {{ overwrite?: boolean }} options - overwrite: true = Inventario Inicial (sobrescribe todo), false = Actualización Masiva (añade)
+   */
+  const addBienesFromImport = useCallback((rows, options = {}) => {
+    const overwrite = !!options.overwrite
     setProducts((prev) => {
-      let id = nextId(prev)
+      const base = overwrite ? [] : prev
+      let id = nextId(base)
       const newItems = rows.map((row) => ({
         id: id++,
         name: row.name ?? '',
@@ -121,8 +128,64 @@ export const InventoryProvider = ({ children }) => {
         imagenesReferenciales: Array.isArray(row.imagenesReferenciales) ? row.imagenesReferenciales : [],
         version: 1,
       }))
-      return [...prev, ...newItems]
+      return [...base, ...newItems]
     })
+  }, [])
+
+  /** Vacía todo el inventario (solo uso Administrador). Reinicia productos, movimientos y auditoría. */
+  const vaciarInventario = useCallback(() => {
+    setProducts(initialProducts)
+    setMovements([])
+    setAuditEvents([])
+  }, [])
+
+  /** Añade un único bien (para Colaborador: ítem individual). */
+  const addProduct = useCallback((product) => {
+    if (!product?.name && !product?.codigoInventario) return
+    setProducts((prev) => {
+      const id = nextId(prev)
+      const newItem = {
+        id,
+        name: product.name ?? '',
+        sku: product.codigoInventario ?? product.sku ?? `INV-${id}`,
+        codigoInventario: product.codigoInventario ?? product.sku ?? `INV-${id}`,
+        tipoBien: product.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
+        description: product.description ?? '',
+        quantity: Math.max(0, Number(product.quantity) || 0),
+        price: Number(product.price) || 0,
+        cost: Number(product.cost) || 0,
+        valorLibros: Math.max(0, Number(product.valorLibros) || 0),
+        estadoVerificacion: ['teorico', 'verificado_terreno', 'no_encontrado'].includes(product.estadoVerificacion)
+          ? product.estadoVerificacion
+          : 'teorico',
+        especificaciones: product.especificaciones ?? '',
+        caracteristicas: product.caracteristicas ?? '',
+        composicion: product.composicion ?? '',
+        material: product.material ?? '',
+        formato: product.formato ?? '',
+        origen: product.origen ?? '',
+        tamano: product.tamano ?? '',
+        certificaciones: product.certificaciones ?? '',
+        imagenesReferenciales: Array.isArray(product.imagenesReferenciales) ? product.imagenesReferenciales : [],
+        version: 1,
+      }
+      return [...prev, newItem]
+    })
+  }, [])
+
+  /** Actualiza un bien existente (p. ej. estado de verificación). */
+  const updateProduct = useCallback((productId, partial) => {
+    if (!productId || !partial || typeof partial !== 'object') return
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (p.id !== productId) return p
+        const updates = { ...partial }
+        if ('quantity' in updates && updates.quantity !== undefined) {
+          updates.quantity = Math.max(0, Number(updates.quantity) || 0)
+        }
+        return { ...p, ...updates, version: (p.version ?? 1) + 1 }
+      })
+    )
   }, [])
 
   const addProductImages = useCallback((productId, newImageUrls) => {
@@ -159,7 +222,8 @@ export const InventoryProvider = ({ children }) => {
       const responsibleStr = String(responsible || '').trim() || '—'
       const reasonStr = String(reason || '').trim() || '—'
       const deltaNum = Number(delta)
-      const newQty = Math.max(0, (product.quantity ?? 0) + deltaNum)
+      const currentQty = Number(product.quantity) || 0
+      const newQty = Math.max(0, currentQty + deltaNum)
       const movementPayload = {
         productId: product.id,
         productName: product.name,
@@ -187,6 +251,62 @@ export const InventoryProvider = ({ children }) => {
     [products]
   )
 
+  /**
+   * Case B: Register a return (or any entry) for an SKU that does not exist.
+   * Creates a new asset with quantity 1 and records the movement. Asset count increases by 1.
+   * @param {{ codigoInventario: string, name: string, description?: string, type: string, responsible: string, reason: string, date?: string }} data
+   * @returns {{ newId: number, productName: string, codigoInventario: string }} For audit logging.
+   */
+  const registerReturnNewSku = useCallback(
+    (data) => {
+      const sku = String(data.codigoInventario ?? data.sku ?? '').trim()
+      const name = String(data.name ?? '').trim() || sku || 'Nuevo activo'
+      if (!sku) return null
+      const newId = nextId(products)
+      const resolvedDate = data.date ? new Date(data.date) : new Date()
+      const responsibleStr = String(data.responsible || '').trim() || '—'
+      const reasonStr = String(data.reason || '').trim() || '—'
+      const newProduct = {
+        id: newId,
+        name,
+        sku,
+        codigoInventario: sku,
+        tipoBien: 'mueble',
+        description: String(data.description ?? '').trim(),
+        quantity: 1,
+        price: 0,
+        cost: 0,
+        valorLibros: 0,
+        estadoVerificacion: 'teorico',
+        especificaciones: '',
+        caracteristicas: '',
+        composicion: '',
+        material: '',
+        formato: '',
+        origen: '',
+        tamano: '',
+        certificaciones: '',
+        imagenesReferenciales: [],
+        version: 1,
+      }
+      const movementPayload = {
+        productId: newId,
+        productName: name,
+        codigoInventario: sku,
+        type: data.type || 'devolucion_cliente_retail',
+        quantityDelta: 1,
+        quantityAfter: 1,
+        responsible: responsibleStr,
+        reason: reasonStr,
+        date: resolvedDate.toISOString(),
+      }
+      setProducts((prev) => [...prev, newProduct])
+      setMovements((m) => [...m, { id: nextMovementId(m), ...movementPayload }])
+      return { newId, productName: name, codigoInventario: sku }
+    },
+    [products]
+  )
+
   const resetToInitial = useCallback(() => {
     setProducts(initialProducts)
     setMovements([])
@@ -198,13 +318,19 @@ export const InventoryProvider = ({ children }) => {
     movements,
     auditEvents,
     addBienesFromImport,
+    vaciarInventario,
+    addProduct,
+    updateProduct,
     addProductImages,
     clearAllProductImages,
     addMovement,
+    registerReturnNewSku,
     logAuditEvent,
     revertAuditEvent,
     resetToInitial,
     totalCount: products.length,
+    /** Suma de todas las cantidades (unidades en stock). Siempre numérico para evitar concatenación. */
+    totalUnidades: products.reduce((sum, p) => sum + Math.max(0, Number(p.quantity) || 0), 0),
   }
 
   return <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>
