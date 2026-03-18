@@ -34,7 +34,7 @@ async function extractImagesFromZip(zipFile) {
   return files
 }
 
-const PLACEHOLDER_NO_PHOTO = '/sin-foto.png'
+const PLACEHOLDER_NO_PHOTO = `${import.meta.env.BASE_URL}sin-foto.png`
 
 /** Lightbox simple para previsualización */
 const Lightbox = ({ src, alt, onClose }) => {

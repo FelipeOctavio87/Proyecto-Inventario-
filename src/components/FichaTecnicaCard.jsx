@@ -1,6 +1,6 @@
 import { TIPO_BIEN, FICHA_TECNICA_LABELS } from '../types/product'
 
-const PLACEHOLDER_NO_PHOTO = '/sin-foto.png'
+const PLACEHOLDER_NO_PHOTO = `${import.meta.env.BASE_URL}sin-foto.png`
 
 const formatCLP = (value) =>
   new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value ?? 0)

@@ -32,7 +32,11 @@ const LoginPage = () => {
     <div className="page login-page">
       <section className="login">
         <div className="login__logo-wrap">
-          <img src="/logo.png" alt="Inventario - Sistema de Control" className="login__logo" />
+          <img
+            src={`${import.meta.env.BASE_URL}logo.png`}
+            alt="Inventario - Sistema de Control"
+            className="login__logo"
+          />
         </div>
         <h2 className="login__title">Iniciar sesión</h2>
         <form className="login__form" onSubmit={handleSubmit}>
