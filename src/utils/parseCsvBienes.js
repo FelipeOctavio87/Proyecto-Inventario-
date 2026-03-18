@@ -15,7 +15,77 @@ const DEFAULT_HEADERS = [
   'estadoVerificacion',
 ]
 
-const normalizeHeader = (h) => String(h).trim().toLowerCase().replace(/\s+/g, '')
+const normalizeHeader = (h) =>
+  String(h ?? '')
+    .trim()
+    .toLowerCase()
+    // Quitar tildes/diacríticos para que "Precio venta unitario" y similares calcen con las reglas.
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    // Eliminar separadores (espacios, guiones, comas, etc.)
+    .replace(/[^a-z0-9]/g, '')
+
+/**
+ * Parsea números presentes en el CSV con distintos formatos (ej: "189990.0", "1.234.567,89").
+ * Retorna NaN si no es posible parsear.
+ * @param {string|number} raw
+ * @returns {number}
+ */
+const parseNumberLike = (raw) => {
+  let s = String(raw ?? '').trim()
+  if (!s) return NaN
+
+  // Quitar separadores de espacio accidental
+  s = s.replace(/\s+/g, '')
+
+  // Evitar problemas con notación científica
+  if (/e/i.test(s)) {
+    const n = Number(s)
+    return Number.isFinite(n) ? n : NaN
+  }
+
+  const hasComma = s.includes(',')
+  const hasDot = s.includes('.')
+
+  if (hasComma && hasDot) {
+    // Caso mixto: decidimos decimal según cuál aparece más al final.
+    const lastComma = s.lastIndexOf(',')
+    const lastDot = s.lastIndexOf('.')
+
+    if (lastComma > lastDot) {
+      // Decimal con coma (ej: 1.234.567,89)
+      s = s.replace(/\./g, '').replace(',', '.')
+    } else {
+      // Decimal con punto (ej: 1,234,567.89)
+      s = s.replace(/,/g, '')
+    }
+  } else if (hasComma) {
+    // Decimal con coma (posible miles con coma también)
+    const parts = s.split(',')
+    if (parts.length > 2) {
+      // Ej: 1,234,567,89 -> 1234567.89
+      const dec = parts.pop()
+      s = parts.join('') + '.' + dec
+    } else {
+      s = s.replace(',', '.')
+    }
+  } else if (hasDot) {
+    // Decimal con punto o miles con punto
+    const parts = s.split('.')
+    if (parts.length > 2) {
+      // Ej: 1.234.567 -> 1234567
+      s = parts.join('')
+    } else {
+      // 189990.0 -> ok (decimal con punto)
+    }
+  }
+
+  const n = Number(s)
+  if (!Number.isFinite(n)) return NaN
+
+  // Si el número es entero (ej: 189990.0) devolvemos como entero para que no quede ".0"
+  return Number.isInteger(n) ? n : n
+}
 
 const detectSeparator = (firstLine) => {
   const semicolon = (firstLine.match(/;/g) || []).length
@@ -78,6 +148,7 @@ const mapHeaders = (rawHeaders) => {
     if (n === 'cantidad' || n === 'quantity' || n === 'unidades') return 'quantity'
     if (n === 'valorlibros' || n === 'valor' || n === 'valorlibro' || n === 'costounitario' || n === 'costo') return 'valorLibros'
     if (n === 'estadoverificacion' || n === 'estado') return 'estadoVerificacion'
+    if (n === 'precioventaunitario' || n === 'precioventa' || n === 'precio' || n === 'price') return 'price'
     return `col${i}`
   })
 }
@@ -104,7 +175,15 @@ export const parseCsvBienes = (text) => {
     const values = parseLine(lines[i], separator)
     const row = {}
     headers.forEach((h, j) => {
-      row[h] = values[j] !== undefined ? String(values[j]).trim() : ''
+      const rawValue = values[j] !== undefined ? String(values[j]).trim() : ''
+      // Mantener columnas de texto/categoría como string (evita perder ceros a la izquierda en códigos)
+      const TEXT_FIELDS = new Set(['codigoInventario', 'name', 'tipoBien', 'description', 'estadoVerificacion'])
+      if (TEXT_FIELDS.has(h)) {
+        row[h] = rawValue
+        return
+      }
+      const parsedNumber = parseNumberLike(rawValue)
+      row[h] = Number.isFinite(parsedNumber) ? parsedNumber : rawValue
     })
     const rawCodigo = row.codigoInventario || row.codigo || row.sku || ''
     const { value: codigo, valid: skuValid } = sanitizeSKU(rawCodigo)
@@ -117,8 +196,15 @@ export const parseCsvBienes = (text) => {
       errors.push({ row: i + 1, message: 'Falta nombre o código del bien.' })
       continue
     }
-    const quantity = Number(row.quantity) || 0
-    const valorLibros = Number(String(row.valorLibros || '0').replace(/\./g, '').replace(',', '.')) || 0
+    const quantityParsed = parseNumberLike(row.quantity)
+    const quantity = Number.isFinite(quantityParsed) ? quantityParsed : 0
+
+    const valorParsed = parseNumberLike(row.valorLibros)
+    const valorLibros = Number.isFinite(valorParsed) ? valorParsed : 0
+
+    const priceParsed = parseNumberLike(row.price)
+    const price = Number.isFinite(priceParsed) ? priceParsed : 0
+
     if (quantity < 0) {
       errors.push({ row: i + 1, message: 'Cantidad no puede ser negativa.' })
       continue
@@ -131,6 +217,7 @@ export const parseCsvBienes = (text) => {
       description: (row.description || '').trim(),
       quantity,
       valorLibros,
+      price,
       estadoVerificacion: ['teorico', 'verificado_terreno', 'no_encontrado'].includes(row.estadoVerificacion)
         ? row.estadoVerificacion
         : 'teorico',
@@ -146,6 +233,7 @@ const KNOWN_FIELDS = new Set([
   'description',
   'quantity',
   'valorLibros',
+  'price',
   'estadoVerificacion',
 ])
 

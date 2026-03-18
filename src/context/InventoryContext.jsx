@@ -111,7 +111,7 @@ export const InventoryProvider = ({ children }) => {
         tipoBien: row.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
         description: row.description ?? '',
         quantity: Math.max(0, Number(row.quantity) || 0),
-        price: 0,
+        price: Math.max(0, Number(row.price) || 0),
         cost: 0,
         valorLibros: Math.max(0, Number(row.valorLibros) || 0),
         estadoVerificacion: ['teorico', 'verificado_terreno', 'no_encontrado'].includes(row.estadoVerificacion)

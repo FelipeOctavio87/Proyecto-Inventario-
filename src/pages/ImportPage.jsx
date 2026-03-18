@@ -12,6 +12,7 @@ const MAP_LABELS = {
   description: 'Descripción',
   quantity: 'Cantidad',
   valorLibros: 'Valor en libros',
+  price: 'Precio venta unitario',
   estadoVerificacion: 'Estado verificación',
 }
 
