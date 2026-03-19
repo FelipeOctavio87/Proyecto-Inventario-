@@ -7,6 +7,7 @@ const AddProductModal = ({ onClose }) => {
   const [form, setForm] = useState({
     name: '',
     codigoInventario: '',
+    barcode: '',
     tipoBien: 'mueble',
     description: '',
     quantity: 1,
@@ -58,6 +59,17 @@ const AddProductModal = ({ onClose }) => {
               value={form.codigoInventario}
               onChange={handleChange}
               placeholder="Ej. INV-M-001"
+              className="add-product-input"
+            />
+          </label>
+          <label className="add-product-label">
+            Código de barras (opcional)
+            <input
+              type="text"
+              name="barcode"
+              value={form.barcode}
+              onChange={handleChange}
+              placeholder="Ej. BC-8000008164911 (o EAN/UPC numérico)"
               className="add-product-input"
             />
           </label>

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback } from 'react'
 import { products as initialProducts } from '../data/products'
+import { resolveBarcode } from '../utils/resolveBarcode'
 
 const InventoryContext = createContext(null)
 
@@ -100,14 +101,43 @@ export const InventoryProvider = ({ children }) => {
    */
   const addBienesFromImport = useCallback((rows, options = {}) => {
     const overwrite = !!options.overwrite
-    setProducts((prev) => {
-      const base = overwrite ? [] : prev
-      let id = nextId(base)
-      const newItems = rows.map((row) => ({
+    const base = overwrite ? [] : products
+    const usedBarcodes = new Set(base.map((p) => String(p.barcode ?? '').trim()).filter(Boolean))
+
+    let id = nextId(base)
+    const auditToLog = []
+    const newItems = rows.map((row) => {
+      const sku = String(row.codigoInventario ?? row.sku ?? '').trim()
+      const resolved = resolveBarcode(sku, row.barcode, usedBarcodes)
+
+      // Marcar para futuras validaciones de duplicidad en esta misma carga.
+      if (resolved.barcode) usedBarcodes.add(resolved.barcode)
+
+      auditToLog.push({
+        usuario: 'Sistema',
+        accion: 'Resolución de barcode (importación CSV)',
+        actionType: 'BARCODE_IMPORT',
+        targetSku: sku,
+        sku,
+        detalle:
+          resolved.source === 'csv'
+            ? `Barcode usado desde CSV para SKU ${sku}: ${resolved.barcode}`
+            : resolved.source === 'auto'
+              ? `Barcode generado automáticamente (fallback BC-{SKU}) para SKU ${sku}: ${resolved.barcode}`
+              : resolved.source === 'invalid_format_fallback'
+                ? `Barcode inválido en CSV para SKU ${sku}; se usó fallback: ${resolved.barcode}${
+                    resolved.validationError ? ` (${resolved.validationError})` : ''
+                  }`
+                : `Barcode duplicado resuelto por sufijo incremental para SKU ${sku}: ${resolved.barcode}`,
+        reversible: false,
+      })
+
+      return {
         id: id++,
         name: row.name ?? '',
-        sku: row.codigoInventario ?? row.sku ?? '',
-        codigoInventario: row.codigoInventario ?? row.sku ?? '',
+        sku,
+        codigoInventario: sku,
+        barcode: resolved.barcode,
         tipoBien: row.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
         description: row.description ?? '',
         quantity: Math.max(0, Number(row.quantity) || 0),
@@ -127,10 +157,12 @@ export const InventoryProvider = ({ children }) => {
         certificaciones: row.certificaciones ?? '',
         imagenesReferenciales: Array.isArray(row.imagenesReferenciales) ? row.imagenesReferenciales : [],
         version: 1,
-      }))
-      return [...base, ...newItems]
+      }
     })
-  }, [])
+
+    setProducts([...base, ...newItems])
+    auditToLog.forEach((evt) => logAuditEvent(evt))
+  }, [products, logAuditEvent])
 
   /** Vacía todo el inventario (solo uso Administrador). Reinicia productos, movimientos y auditoría. */
   const vaciarInventario = useCallback(() => {
@@ -144,11 +176,18 @@ export const InventoryProvider = ({ children }) => {
     if (!product?.name && !product?.codigoInventario) return
     setProducts((prev) => {
       const id = nextId(prev)
+      const usedBarcodes = new Set(prev.map((p) => String(p.barcode ?? '').trim()).filter(Boolean))
+
+      const skuResolved = product.codigoInventario ?? product.sku ?? `INV-${id}`
+      const resolved = resolveBarcode(skuResolved, product.barcode, usedBarcodes)
+      if (resolved.barcode) usedBarcodes.add(resolved.barcode)
+
       const newItem = {
         id,
         name: product.name ?? '',
-        sku: product.codigoInventario ?? product.sku ?? `INV-${id}`,
-        codigoInventario: product.codigoInventario ?? product.sku ?? `INV-${id}`,
+        sku: skuResolved,
+        codigoInventario: skuResolved,
+        barcode: resolved.barcode,
         tipoBien: product.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
         description: product.description ?? '',
         quantity: Math.max(0, Number(product.quantity) || 0),
@@ -266,11 +305,15 @@ export const InventoryProvider = ({ children }) => {
       const resolvedDate = data.date ? new Date(data.date) : new Date()
       const responsibleStr = String(data.responsible || '').trim() || '—'
       const reasonStr = String(data.reason || '').trim() || '—'
+
+      const usedBarcodes = new Set(products.map((p) => String(p.barcode ?? '').trim()).filter(Boolean))
+      const resolved = resolveBarcode(sku, data.barcode, usedBarcodes)
       const newProduct = {
         id: newId,
         name,
         sku,
         codigoInventario: sku,
+        barcode: resolved.barcode,
         tipoBien: 'mueble',
         description: String(data.description ?? '').trim(),
         quantity: 1,

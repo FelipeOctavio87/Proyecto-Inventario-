@@ -1,6 +1,7 @@
 import { TIPO_BIEN, ESTADO_VERIFICACION } from '../types/product'
 import { useInventory } from '../context/InventoryContext'
 import { useProducts } from '../hooks/useProducts'
+import BarcodeDisplay from './BarcodeDisplay'
 
 const PLACEHOLDER_NO_PHOTO = `${import.meta.env.BASE_URL}sin-foto.png`
 
@@ -67,6 +68,10 @@ const FichaTecnicaModal = ({ product, onClose }) => {
           <p className="ficha-tecnica__codigo">
             Código: {currentProduct.codigoInventario ?? currentProduct.sku} · {TIPO_BIEN[currentProduct.tipoBien] ?? currentProduct.tipoBien}
           </p>
+
+          <div className="mt-4">
+            <BarcodeDisplay value={currentProduct.barcode} />
+          </div>
 
           <div className="ficha-tecnica__imagenes">
             <h4>Fotos</h4>

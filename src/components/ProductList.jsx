@@ -31,11 +31,13 @@ const ProductList = () => {
       if (!hasQuery) return true
 
       const codigo = normalizeSkuForSearch(p.codigoInventario ?? p.sku ?? '')
+      const barcode = normalizeSkuForSearch(p.barcode ?? '')
       const name = String(p.name ?? '').toLowerCase()
       const description = String(p.description ?? '').toLowerCase()
 
       return (
         codigo.toLowerCase().includes(qSku) ||
+        barcode.toLowerCase().includes(qSku) ||
         name.includes(q) ||
         description.includes(q)
       )

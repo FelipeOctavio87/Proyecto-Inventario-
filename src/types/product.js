@@ -30,6 +30,7 @@ export const ProductShape = {
   name: '',
   sku: '',
   codigoInventario: '',
+  barcode: '',
   tipoBien: 'mueble',
   description: '',
   quantity: 0,

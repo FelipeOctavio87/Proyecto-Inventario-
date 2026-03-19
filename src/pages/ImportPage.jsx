@@ -9,6 +9,7 @@ const MAP_LABELS = {
   codigoInventario: 'Código inventario',
   name: 'Nombre',
   tipoBien: 'Tipo de bien',
+  barcode: 'Código de barras',
   description: 'Descripción',
   quantity: 'Cantidad',
   valorLibros: 'Valor en libros',

@@ -9,6 +9,7 @@ const DEFAULT_HEADERS = [
   'codigoInventario',
   'name',
   'tipoBien',
+  'barcode',
   'description',
   'quantity',
   'valorLibros',
@@ -144,6 +145,7 @@ const mapHeaders = (rawHeaders) => {
     if (n === 'codigoinventario' || n === 'codigo' || n === 'sku') return 'codigoInventario'
     if (n === 'nombre' || n === 'name' || n === 'producto') return 'name'
     if (n === 'tipobien' || n === 'tipo') return 'tipoBien'
+    if (n === 'barcode' || n === 'codigodebarras' || n === 'codigobarras') return 'barcode'
     if (n === 'descripcion' || n === 'description') return 'description'
     if (n === 'cantidad' || n === 'quantity' || n === 'unidades') return 'quantity'
     if (n === 'valorlibros' || n === 'valor' || n === 'valorlibro' || n === 'costounitario' || n === 'costo') return 'valorLibros'
@@ -177,7 +179,7 @@ export const parseCsvBienes = (text) => {
     headers.forEach((h, j) => {
       const rawValue = values[j] !== undefined ? String(values[j]).trim() : ''
       // Mantener columnas de texto/categoría como string (evita perder ceros a la izquierda en códigos)
-      const TEXT_FIELDS = new Set(['codigoInventario', 'name', 'tipoBien', 'description', 'estadoVerificacion'])
+      const TEXT_FIELDS = new Set(['codigoInventario', 'name', 'tipoBien', 'description', 'estadoVerificacion', 'barcode'])
       if (TEXT_FIELDS.has(h)) {
         row[h] = rawValue
         return
@@ -190,6 +192,21 @@ export const parseCsvBienes = (text) => {
     if (rawCodigo.trim() !== '' && !skuValid) {
       errors.push({ row: i + 1, message: 'SKU Inválido.' })
       continue
+    }
+
+    // Barcode: si viene vacío o no existe => se deja en vacío para fallback.
+    // Si viene no vacío y es inválido => se registra error pero se sigue importando.
+    const rawBarcode = String(row.barcode ?? '').trim()
+    let barcode = rawBarcode
+    if (rawBarcode) {
+      const barcodeValid = rawBarcode.length > 3 && !/\s/.test(rawBarcode) && /^[A-Za-z0-9-]+$/.test(rawBarcode)
+      if (!barcodeValid) {
+        errors.push({
+          row: i + 1,
+          message: `Barcode inválido (formato). Valor recibido: "${rawBarcode}".`,
+        })
+        barcode = ''
+      }
     }
     const name = (row.name || '').trim() || codigo || `Bien ${i + 1}`
     if (!name) {
@@ -215,6 +232,7 @@ export const parseCsvBienes = (text) => {
       name,
       tipoBien: row.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
       description: (row.description || '').trim(),
+      barcode,
       quantity,
       valorLibros,
       price,
@@ -230,6 +248,7 @@ const KNOWN_FIELDS = new Set([
   'codigoInventario',
   'name',
   'tipoBien',
+  'barcode',
   'description',
   'quantity',
   'valorLibros',
@@ -260,7 +279,7 @@ export const EXAMPLE_CSV_HEADER =
   'Producto,SKU,Unidades,Costo unitario,Costo Total,Precio venta unitario,Total Venta'
 
 export const CSV_TEMPLATE_HEADER =
-  'codigoInventario,name,tipoBien,description,quantity,valorLibros,estadoVerificacion'
+  'codigoInventario,name,tipoBien,description,barcode,quantity,valorLibros,estadoVerificacion'
 
 export const getCsvTemplateBlob = () => {
   const header = CSV_TEMPLATE_HEADER
