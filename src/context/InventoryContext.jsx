@@ -253,13 +253,14 @@ export const InventoryProvider = ({ children }) => {
   }, [])
 
   const addMovement = useCallback(
-    (productId, { type, delta, responsible, reason, date }) => {
+    (productId, { type, delta, responsible, reason, retail, date }) => {
       if (!productId || delta === 0) return
       const product = products.find((p) => p.id === productId)
       if (!product) return
       const resolvedDate = date ? new Date(date) : new Date()
       const responsibleStr = String(responsible || '').trim() || '—'
       const reasonStr = String(reason || '').trim() || '—'
+      const retailStr = String(retail || '').trim() || null
       const deltaNum = Number(delta)
       const currentQty = Number(product.quantity) || 0
       const newQty = Math.max(0, currentQty + deltaNum)
@@ -272,6 +273,7 @@ export const InventoryProvider = ({ children }) => {
         quantityAfter: newQty,
         responsible: responsibleStr,
         reason: reasonStr,
+        retail: retailStr,
         date: resolvedDate.toISOString(),
       }
       setMovements((m) => [...m, { id: nextMovementId(m), ...movementPayload }])

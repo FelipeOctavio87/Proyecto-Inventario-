@@ -76,6 +76,10 @@ function getSubmitButtonClass(typeValue) {
 }
 
 const NEW_SKU_VALUE = '__new__'
+const RETAIL_OPTIONS = ['Falabella', 'Paris', 'Ripley', 'Walmart', 'Mercado Libre', 'Hites']
+
+const isRetailRequiredForType = (typeValue) =>
+  typeValue === 'venta' || typeValue === 'devolucion_cliente_retail'
 
 const TrazabilidadPage = () => {
   const { user } = useAuth()
@@ -86,11 +90,13 @@ const TrazabilidadPage = () => {
   const [newSkuCode, setNewSkuCode] = useState('')
   const [newSkuName, setNewSkuName] = useState('')
   const [reason, setReason] = useState('')
+  const [retail, setRetail] = useState('')
   const [date, setDate] = useState(() => getChileNowForInput())
   const [validationError, setValidationError] = useState('')
 
   const responsibleDisplay = user?.email ? `Usuario Autenticado: ${user.email}` : 'Usuario Autenticado: Felipe Rebolledo'
   const reasonRequired = isReasonRequired(type)
+  const retailRequired = isRetailRequiredForType(type)
   const isEntrada = getMovementSign(type) === 'entrada'
   const isNewSkuMode = productId === NEW_SKU_VALUE
 
@@ -100,6 +106,10 @@ const TrazabilidadPage = () => {
 
     if (reasonRequired && !String(reason || '').trim()) {
       setValidationError('El motivo es obligatorio para este tipo de movimiento.')
+      return
+    }
+    if (retailRequired && !String(retail || '').trim()) {
+      setValidationError('Debe seleccionar un Retail para Venta o Devolución.')
       return
     }
 
@@ -122,7 +132,7 @@ const TrazabilidadPage = () => {
         name,
         type,
         responsible: responsibleDisplay,
-        reason: String(reason || '').trim() || '—',
+        reason: `${String(reason || '').trim() || '—'}${retailRequired ? ` · Retail: ${retail}` : ''}`,
         date: date ? new Date(date).toISOString() : undefined,
       })
       if (result) {
@@ -145,6 +155,7 @@ const TrazabilidadPage = () => {
       setNewSkuCode('')
       setNewSkuName('')
       setReason('')
+      setRetail('')
       setDate(getChileNowForInput())
       return
     }
@@ -168,6 +179,7 @@ const TrazabilidadPage = () => {
       delta: effectiveDelta,
       responsible: responsibleDisplay,
       reason: String(reason || '').trim() || '—',
+      retail: retailRequired ? retail : null,
       date: date ? new Date(date).toISOString() : undefined,
     })
 
@@ -190,7 +202,7 @@ const TrazabilidadPage = () => {
         targetSku: product.codigoInventario ?? product.sku,
         previousValue: currentQty,
         newValue: afterQty,
-        detalle: `Movimiento "${MOVEMENT_TYPE_LABELS[type]}" sobre "${product.name}" (${product.codigoInventario ?? product.sku ?? 'sin código'}) por ${effectiveDelta} unidades.`,
+        detalle: `Movimiento "${MOVEMENT_TYPE_LABELS[type]}" sobre "${product.name}" (${product.codigoInventario ?? product.sku ?? 'sin código'}) por ${effectiveDelta} unidades.${retailRequired ? ` Retail: ${retail}.` : ''}`,
         productoId: product.id,
         sku: product.codigoInventario ?? product.sku,
         estadoAnterior: before,
@@ -201,6 +213,7 @@ const TrazabilidadPage = () => {
 
     setQuantityInput('')
     setReason('')
+    setRetail('')
     setDate(getChileNowForInput())
   }
 
@@ -276,6 +289,7 @@ const TrazabilidadPage = () => {
                 onChange={(e) => {
                   const newType = e.target.value
                   setType(newType)
+                  if (!isRetailRequiredForType(newType)) setRetail('')
                   if (getMovementSign(newType) !== 'entrada' && productId === NEW_SKU_VALUE) {
                     setProductId('')
                     setNewSkuCode('')
@@ -295,6 +309,25 @@ const TrazabilidadPage = () => {
                 ))}
               </select>
             </div>
+
+            {retailRequired && (
+              <div>
+                <label className="block text-base font-medium text-slate-200 mb-2">
+                  Retail <span className="text-red-400">*</span>
+                </label>
+                <select
+                  value={retail}
+                  onChange={(e) => setRetail(e.target.value)}
+                  className="w-full text-lg rounded-lg border border-slate-400 bg-slate-100 text-slate-900 px-4 py-3 focus:ring-2 focus:ring-indigo-500"
+                  required
+                >
+                  <option value="">Seleccionar Retail</option>
+                  {RETAIL_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {!isNewSkuMode && (
             <div>
@@ -382,6 +415,7 @@ const TrazabilidadPage = () => {
                     <th>Fecha</th>
                     <th>Producto / Código</th>
                     <th>Tipo</th>
+                    <th>Retail</th>
                     <th>Variación</th>
                     <th>Stock después</th>
                     <th>Responsable</th>
@@ -396,6 +430,7 @@ const TrazabilidadPage = () => {
                         {m.productName} <span className="trazabilidad__codigo">({m.codigoInventario})</span>
                       </td>
                       <td>{MOVEMENT_TYPE_LABELS[m.type] ?? m.type}</td>
+                      <td>{m.retail ?? '—'}</td>
                       <td className={m.quantityDelta > 0 ? 'trazabilidad__delta--pos' : 'trazabilidad__delta--neg'}>
                         {m.quantityDelta > 0 ? '+' : ''}{m.quantityDelta}
                       </td>
