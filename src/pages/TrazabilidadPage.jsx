@@ -7,6 +7,7 @@ import {
   getMovementSign,
   isReasonRequired,
 } from '../types/movement'
+import AjustePorEscaneo from '../components/AjustePorEscaneo'
 
 const CHILE_TZ = 'America/Santiago'
 
@@ -366,6 +367,8 @@ const TrazabilidadPage = () => {
             </button>
           </form>
         </div>
+
+        <AjustePorEscaneo />
 
         <div className="trazabilidad__history mt-8">
           <h3 className="trazabilidad__history-title">Historial de movimientos</h3>

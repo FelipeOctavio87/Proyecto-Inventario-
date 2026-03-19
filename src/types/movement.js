@@ -35,6 +35,7 @@ export const MOVEMENT_CATEGORIES = {
     types: [
       { value: 'transferencia_bodegas', label: 'Transferencia entre Bodegas' },
       { value: 'ajuste_auditoria', label: 'Ajuste por Auditoría' },
+      { value: 'ajuste_pistola', label: 'Ajuste por pistola lectora' },
       { value: 'bloqueo_stock', label: 'Bloqueo de Stock (Control de Calidad)' },
     ],
   },
