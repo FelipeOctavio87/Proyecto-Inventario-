@@ -49,16 +49,53 @@ export async function fetchProductByBarcode(
     throw new Error(`Error al consultar el código (${res.status}).`)
   }
 
-  const data = (await res.json()) as Partial<BarcodeLookupResponse>
-  if (!data || typeof data.sku !== 'string' || typeof data.nombre !== 'string') {
+  const data = (await res.json()) as Record<string, unknown> | null
+  if (!data || typeof data !== 'object') {
     throw new Error('Respuesta del servidor inválida.')
   }
 
+  // Soporta variaciones típicas del backend (por si los campos vienen con nombres alternativos).
+  // Contrato esperado (según tu especificación):
+  // { sku, nombre, stockActual, imagenUrl }
+  const sku =
+    (typeof data.sku === 'string' ? data.sku : undefined) ??
+    (typeof data.SKU === 'string' ? data.SKU : undefined) ??
+    (typeof data.codigoInventario === 'string' ? data.codigoInventario : undefined)
+
+  const nombre =
+    (typeof data.nombre === 'string' ? data.nombre : undefined) ??
+    (typeof data.name === 'string' ? data.name : undefined) ??
+    (typeof data.nombreProducto === 'string' ? data.nombreProducto : undefined)
+
+  const stockRaw =
+    data.stockActual ??
+    data.stock ??
+    data.stock_actual ??
+    data.quantity ??
+    data.stockDisponible
+
+  const stockActual = Number(stockRaw ?? 0)
+
+  const imagenUrlRaw =
+    data.imagenUrl ??
+    data.imagenURL ??
+    data.imagen_url ??
+    data.imageUrl ??
+    data.image_url ??
+    data.imagen
+
+  const imagenUrl =
+    typeof imagenUrlRaw === 'string' && imagenUrlRaw.trim().length > 0 ? imagenUrlRaw : null
+
+  if (!sku || !nombre) {
+    throw new Error('Respuesta del servidor inválida (falta sku o nombre).')
+  }
+
   return {
-    sku: data.sku,
-    nombre: data.nombre,
-    stockActual: Number(data.stockActual ?? 0),
-    imagenUrl: data.imagenUrl ?? null,
+    sku,
+    nombre,
+    stockActual: Number.isFinite(stockActual) ? stockActual : 0,
+    imagenUrl,
   }
 }
 
@@ -81,7 +118,17 @@ export async function postAjustePorEscaneo(
     let msg = `No se pudo registrar el ajuste (${res.status}).`
     try {
       const body = await res.json()
-      if (body && typeof body.message === 'string') msg = body.message
+      if (body && typeof body === 'object') {
+        const maybeMessage =
+          typeof (body as any).message === 'string'
+            ? (body as any).message
+            : typeof (body as any).error === 'string'
+              ? (body as any).error
+              : typeof (body as any).detail === 'string'
+                ? (body as any).detail
+                : null
+        if (maybeMessage) msg = maybeMessage
+      }
     } catch {
       try {
         const t = await res.text()
