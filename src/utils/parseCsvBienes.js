@@ -4,33 +4,29 @@ import { resolveUbicacionFisicaFromCsv } from '../types/product'
  * Parsea CSV de bienes para importación masiva.
  * Espera encabezado: codigoInventario,name,tipoBien,description,quantity,valorLibros,estadoVerificacion
  * Acepta separador coma (,) o punto y coma (;).
+ *
+ * Reglas SKU (sanitizeSKU): 1–64 caracteres; letras, números, punto, guión bajo y guión medio.
+ * No se permiten espacios ni caracteres de control.
+ *
  * @param {string} text - Contenido del CSV
- * @returns {{ valid: Array<Object>, errors: Array<{ row: number, message: string }> }}
+ * @returns {{
+ *   valid: Array<Object>,
+ *   blockingErrors: Array<{ row: number, message: string, code?: string }>,
+ *   warnings: Array<{ row: number, message: string, code?: string }>,
+ *   totalDataRows: number,
+ *   errors: Array<{ row: number, message: string, code?: string }>
+ * }}
  */
-const DEFAULT_HEADERS = [
-  'codigoInventario',
-  'name',
-  'tipoBien',
-  'barcode',
-  'description',
-  'quantity',
-  'valorLibros',
-  'estadoVerificacion',
-]
-
 const normalizeHeader = (h) =>
   String(h ?? '')
     .trim()
     .toLowerCase()
-    // Quitar tildes/diacríticos para que "Precio venta unitario" y similares calcen con las reglas.
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    // Eliminar separadores (espacios, guiones, comas, etc.)
     .replace(/[^a-z0-9]/g, '')
 
 /**
  * Parsea números presentes en el CSV con distintos formatos (ej: "189990.0", "1.234.567,89").
- * Retorna NaN si no es posible parsear.
  * @param {string|number} raw
  * @returns {number}
  */
@@ -38,10 +34,8 @@ const parseNumberLike = (raw) => {
   let s = String(raw ?? '').trim()
   if (!s) return NaN
 
-  // Quitar separadores de espacio accidental
   s = s.replace(/\s+/g, '')
 
-  // Evitar problemas con notación científica
   if (/e/i.test(s)) {
     const n = Number(s)
     return Number.isFinite(n) ? n : NaN
@@ -51,42 +45,32 @@ const parseNumberLike = (raw) => {
   const hasDot = s.includes('.')
 
   if (hasComma && hasDot) {
-    // Caso mixto: decidimos decimal según cuál aparece más al final.
     const lastComma = s.lastIndexOf(',')
     const lastDot = s.lastIndexOf('.')
 
     if (lastComma > lastDot) {
-      // Decimal con coma (ej: 1.234.567,89)
       s = s.replace(/\./g, '').replace(',', '.')
     } else {
-      // Decimal con punto (ej: 1,234,567.89)
       s = s.replace(/,/g, '')
     }
   } else if (hasComma) {
-    // Decimal con coma (posible miles con coma también)
     const parts = s.split(',')
     if (parts.length > 2) {
-      // Ej: 1,234,567,89 -> 1234567.89
       const dec = parts.pop()
       s = parts.join('') + '.' + dec
     } else {
       s = s.replace(',', '.')
     }
   } else if (hasDot) {
-    // Decimal con punto o miles con punto
     const parts = s.split('.')
     if (parts.length > 2) {
-      // Ej: 1.234.567 -> 1234567
       s = parts.join('')
-    } else {
-      // 189990.0 -> ok (decimal con punto)
     }
   }
 
   const n = Number(s)
   if (!Number.isFinite(n)) return NaN
 
-  // Si el número es entero (ej: 189990.0) devolvemos como entero para que no quede ".0"
   return Number.isInteger(n) ? n : n
 }
 
@@ -115,16 +99,17 @@ const parseLine = (line, separator) => {
   return result
 }
 
+const SKU_MAX_LEN = 64
+
 /**
- * Sanitiza el SKU/código de inventario para evitar decimales ".0" y notación científica.
- * @param {string|number} raw - Valor crudo del CSV
- * @returns {{ value: string, valid: boolean }} Valor limpio y si es válido (no vacío, solo dígitos)
+ * Normaliza y valida SKU/código de inventario (alfanumérico + ._-).
+ * @param {string|number} raw
+ * @returns {{ value: string, valid: boolean, reason?: string }}
  */
 export const sanitizeSKU = (raw) => {
   let s = String(raw ?? '').trim()
-  if (!s) return { value: '', valid: false }
+  if (!s) return { value: '', valid: false, reason: 'empty' }
 
-  // Prevención de notación científica: si viene como "8.00000819723E+12" o "1.23e+10"
   if (/e/i.test(s)) {
     const n = Number(s)
     if (!Number.isNaN(n)) {
@@ -132,12 +117,17 @@ export const sanitizeSKU = (raw) => {
     }
   }
 
-  // Quitar punto decimal trailing (ej: 8000008197230.0 → 8000008197230)
   s = s.replace(/\.0+$/, '')
 
-  // Validación: SKU no vacío y solo dígitos (permite códigos numéricos largos como string)
-  const valid = s.length > 0 && /^\d+$/.test(s)
-  return { value: s, valid }
+  if (s.length > SKU_MAX_LEN) {
+    return { value: s, valid: false, reason: 'too_long' }
+  }
+
+  if (!/^[A-Za-z0-9._-]+$/.test(s)) {
+    return { value: s, valid: false, reason: 'invalid_chars' }
+  }
+
+  return { value: s, valid: true }
 }
 
 const mapHeaders = (rawHeaders) => {
@@ -150,7 +140,8 @@ const mapHeaders = (rawHeaders) => {
     if (n === 'barcode' || n === 'codigodebarras' || n === 'codigobarras') return 'barcode'
     if (n === 'descripcion' || n === 'description') return 'description'
     if (n === 'cantidad' || n === 'quantity' || n === 'unidades') return 'quantity'
-    if (n === 'valorlibros' || n === 'valor' || n === 'valorlibro' || n === 'costounitario' || n === 'costo') return 'valorLibros'
+    if (n === 'valorlibros' || n === 'valor' || n === 'valorlibro' || n === 'costounitario' || n === 'costo')
+      return 'valorLibros'
     if (n === 'estadoverificacion' || n === 'estado') return 'estadoVerificacion'
     if (n === 'precioventaunitario' || n === 'precioventa' || n === 'precio' || n === 'price') return 'price'
     if (n === 'ubicacionfisica' || n === 'ubicacion' || n === 'bodega') {
@@ -163,12 +154,22 @@ const mapHeaders = (rawHeaders) => {
   })
 }
 
+const emptyBlocking = (msg, row = 0, code = 'FILE') => ({
+  valid: [],
+  blockingErrors: [{ row, message: msg, code }],
+  warnings: [],
+  totalDataRows: 0,
+  errors: [{ row, message: msg, code }],
+})
+
 export const parseCsvBienes = (text) => {
   const valid = []
-  const errors = []
+  const blockingErrors = []
+  const warnings = []
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0)
   if (lines.length < 2) {
-    return { valid, errors: [{ row: 0, message: 'El CSV debe tener fila de encabezado y al menos una fila de datos.' }] }
+    const e = emptyBlocking('El CSV debe tener fila de encabezado y al menos una fila de datos.', 0, 'NO_DATA')
+    return e
   }
   const separator = detectSeparator(lines[0])
   const headerLine = parseLine(lines[0], separator)
@@ -176,17 +177,20 @@ export const parseCsvBienes = (text) => {
   const nameIdx = headers.indexOf('name')
   const codigoIdx = headers.indexOf('codigoInventario')
   if (nameIdx === -1 && codigoIdx === -1) {
-    return {
-      valid,
-      errors: [{ row: 1, message: 'Se requiere columna "name" o "nombre" y "codigoInventario" o "codigo".' }],
-    }
+    return emptyBlocking(
+      'Se requiere columna "name" o "nombre" y/o "codigoInventario" o "codigo" / SKU.',
+      1,
+      'MISSING_COLUMNS'
+    )
   }
+
+  const totalDataRows = lines.length - 1
+
   for (let i = 1; i < lines.length; i++) {
     const values = parseLine(lines[i], separator)
     const row = {}
     headers.forEach((h, j) => {
       const rawValue = values[j] !== undefined ? String(values[j]).trim() : ''
-      // Mantener columnas de texto/categoría como string (evita perder ceros a la izquierda en códigos)
       const TEXT_FIELDS = new Set([
         'codigoInventario',
         'name',
@@ -205,29 +209,35 @@ export const parseCsvBienes = (text) => {
       row[h] = Number.isFinite(parsedNumber) ? parsedNumber : rawValue
     })
     const rawCodigo = row.codigoInventario || row.codigo || row.sku || ''
-    const { value: codigo, valid: skuValid } = sanitizeSKU(rawCodigo)
-    if (rawCodigo.trim() !== '' && !skuValid) {
-      errors.push({ row: i + 1, message: 'SKU Inválido.' })
+    const skuResult = sanitizeSKU(rawCodigo)
+    const codigo = skuResult.value
+    if (rawCodigo.trim() !== '' && !skuResult.valid) {
+      const msg =
+        skuResult.reason === 'too_long'
+          ? `SKU demasiado largo (máx. ${SKU_MAX_LEN} caracteres).`
+          : skuResult.reason === 'invalid_chars'
+            ? 'SKU inválido: use solo letras, números, punto, guión o guión bajo (sin espacios).'
+            : 'SKU inválido.'
+      blockingErrors.push({ row: i + 1, message: msg, code: 'SKU_INVALID' })
       continue
     }
 
-    // Barcode: si viene vacío o no existe => se deja en vacío para fallback.
-    // Si viene no vacío y es inválido => se registra error pero se sigue importando.
     const rawBarcode = String(row.barcode ?? '').trim()
     let barcode = rawBarcode
     if (rawBarcode) {
       const barcodeValid = rawBarcode.length > 3 && !/\s/.test(rawBarcode) && /^[A-Za-z0-9-]+$/.test(rawBarcode)
       if (!barcodeValid) {
-        errors.push({
+        warnings.push({
           row: i + 1,
-          message: `Barcode inválido (formato). Valor recibido: "${rawBarcode}".`,
+          message: `Barcode con formato inválido; se importará sin barcode de CSV: "${rawBarcode}".`,
+          code: 'BARCODE_WARN',
         })
         barcode = ''
       }
     }
     const name = (row.name || '').trim() || codigo || `Bien ${i + 1}`
-    if (!name) {
-      errors.push({ row: i + 1, message: 'Falta nombre o código del bien.' })
+    if (!name.trim() && !codigo) {
+      blockingErrors.push({ row: i + 1, message: 'Falta nombre y código del bien.', code: 'ROW_EMPTY' })
       continue
     }
     const quantityParsed = parseNumberLike(row.quantity)
@@ -239,11 +249,14 @@ export const parseCsvBienes = (text) => {
     const priceParsed = parseNumberLike(row.price)
     const price = Number.isFinite(priceParsed) ? priceParsed : 0
 
+    const rawEstadoVerificacion = String(row.estadoVerificacion ?? '').trim()
+
     if (quantity < 0) {
-      errors.push({ row: i + 1, message: 'Cantidad no puede ser negativa.' })
+      blockingErrors.push({ row: i + 1, message: 'Cantidad no puede ser negativa.', code: 'QTY_NEGATIVE' })
       continue
     }
     valid.push({
+      sourceRow: i + 1,
       codigoInventario: codigo || `INV-${i}`,
       sku: codigo || `INV-${i}`,
       name,
@@ -258,9 +271,115 @@ export const parseCsvBienes = (text) => {
       estadoVerificacion: ['teorico', 'verificado_terreno', 'no_encontrado'].includes(row.estadoVerificacion)
         ? row.estadoVerificacion
         : 'teorico',
+      /** Si la columna venía vacía, en modo actualización no se pisa el estado existente del bien. */
+      estadoVerificacionProvided: rawEstadoVerificacion !== '',
     })
   }
-  return { valid, errors }
+
+  const errors = [...blockingErrors, ...warnings]
+  return {
+    valid,
+    blockingErrors,
+    warnings,
+    totalDataRows,
+    errors,
+  }
+}
+
+/**
+ * Genera CSV descargable con incidencias de importación.
+ * @param {Array<{ row: number, message: string, code?: string }>} blocking
+ * @param {Array<{ row: number, message: string, code?: string }>} warns
+ */
+export const buildImportIssuesCsv = (blocking, warns) => {
+  const sep = ';'
+  const header = ['tipo', 'fila', 'codigo', 'mensaje'].join(sep)
+  const esc = (s) => {
+    const t = String(s ?? '').replace(/"/g, '""')
+    return `"${t}"`
+  }
+  const lines = [header]
+  ;(blocking || []).forEach((e) => {
+    lines.push(['bloqueante', e.row, e.code || '', esc(e.message)].join(sep))
+  })
+  ;(warns || []).forEach((e) => {
+    lines.push(['advertencia', e.row, e.code || '', esc(e.message)].join(sep))
+  })
+  return lines.join('\r\n')
+}
+
+/**
+ * Analiza impacto de importación: duplicados de SKU dentro del CSV (última fila gana si no bloquea)
+ * y conteo de filas nuevas vs actualización frente al inventario actual.
+ *
+ * @param {Array<Object>} valid - Filas válidas de parseCsvBienes (con sourceRow)
+ * @param {Array<Object>} existingProducts - productos actuales
+ * @param {{ overwrite: boolean, blockDuplicateSkuInCsv: boolean }} options
+ */
+export const computeImportPlan = (valid, existingProducts, options = {}) => {
+  const overwrite = !!options.overwrite
+  const blockDuplicateSkuInCsv = !!options.blockDuplicateSkuInCsv
+
+  const skuToLastRow = new Map()
+  const skuToFirstSourceRow = new Map()
+  const csvDuplicateWarnings = []
+  const csvDuplicateBlocking = []
+
+  for (const row of valid) {
+    const sku = String(row.codigoInventario ?? row.sku ?? '').trim()
+    const src = row.sourceRow ?? 0
+    if (!sku) continue
+
+    if (skuToLastRow.has(sku)) {
+      const firstRow = skuToFirstSourceRow.get(sku)
+      const msg = `SKU duplicado en el CSV (fila ${src}; primera aparición fila ${firstRow}). Por defecto se aplica la última fila de cada SKU.`
+      if (blockDuplicateSkuInCsv) {
+        csvDuplicateBlocking.push({
+          row: src,
+          message: `${msg} Corrige el archivo o desactiva «Bloquear si hay SKU duplicado en el CSV».`,
+          code: 'CSV_DUP_SKU_BLOCK',
+        })
+      } else {
+        csvDuplicateWarnings.push({
+          row: src,
+          message: msg,
+          code: 'CSV_DUP_SKU',
+        })
+      }
+    } else {
+      skuToFirstSourceRow.set(sku, src)
+    }
+    skuToLastRow.set(sku, row)
+  }
+
+  const appliedRows = [...skuToLastRow.values()]
+
+  let newCount = 0
+  let updateCount = 0
+  if (overwrite) {
+    newCount = appliedRows.length
+  } else {
+    const existingSkus = new Set(
+      (existingProducts || []).map((p) => String(p.codigoInventario ?? p.sku ?? '').trim()).filter(Boolean)
+    )
+    for (const row of appliedRows) {
+      const sku = String(row.codigoInventario ?? row.sku ?? '').trim()
+      if (existingSkus.has(sku)) updateCount += 1
+      else newCount += 1
+    }
+  }
+
+  return {
+    appliedRows,
+    csvDuplicateWarnings,
+    csvDuplicateBlocking,
+    stats: {
+      newCount,
+      updateCount,
+      appliedCount: appliedRows.length,
+      inputValidCount: valid.length,
+    },
+  }
 }
 
 const KNOWN_FIELDS = new Set([
@@ -278,8 +397,7 @@ const KNOWN_FIELDS = new Set([
 ])
 
 /**
- * Obtiene el mapeo de columnas del CSV (solo primera línea) para mostrar en el panel.
- * @param {string} csvText - Contenido del CSV (o solo la línea de encabezados)
+ * @param {string} csvText
  * @returns {Array<{ rawHeader: string, mappedTo: string, ok: boolean }>}
  */
 export const getHeaderMapping = (csvText) => {
@@ -295,7 +413,6 @@ export const getHeaderMapping = (csvText) => {
   }))
 }
 
-/** Encabezado de ejemplo (Inventario.csv) para mostrar el mapeo por defecto en el panel */
 export const EXAMPLE_CSV_HEADER =
   'Producto,SKU,Unidades,Costo unitario,Costo Total,Precio venta unitario,Total Venta'
 

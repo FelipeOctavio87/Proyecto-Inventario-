@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { canPerform, PERMISSIONS } from '../auth/permissions'
 
 const AuthContext = createContext(null)
 
@@ -50,10 +51,17 @@ export const AuthProvider = ({ children }) => {
 
   const isAdmin = !!user && user.role === ROLES.ADMIN
 
+  const can = useCallback(
+    (permission) => canPerform(user?.role ?? null, permission),
+    [user]
+  )
+
   const value = {
     user,
     isLoggedIn: !!user,
     isAdmin,
+    can,
+    PERMISSIONS,
     login,
     logout,
   }

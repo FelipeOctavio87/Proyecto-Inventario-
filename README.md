@@ -42,6 +42,7 @@ Abre [http://localhost:3000](http://localhost:3000).
 
 - [Requisitos](docs/REQUIREMENTS.md)
 - [Guía de desarrollo backend](docs/BACKEND_GUIDELINE.md)
+- [Autenticación y permisos (MVP cliente)](docs/SECURITY_AUTH.md)
 
 ---
 

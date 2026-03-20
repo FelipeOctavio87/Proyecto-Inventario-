@@ -1,5 +1,15 @@
 import { useState } from 'react'
-import { Image, ArrowUpDown, RotateCcw, Trash2 } from 'lucide-react'
+import {
+  Image,
+  ArrowUpDown,
+  RotateCcw,
+  Trash2,
+  Package,
+  AlertTriangle,
+  FileInput,
+  ClipboardCheck,
+  Ban,
+} from 'lucide-react'
 import { useInventory } from '../context/InventoryContext'
 
 const formatDate = (iso) => {
@@ -43,6 +53,21 @@ const ActivityLogPage = () => {
     if (evt.actionType === 'IMAGE_CLEAR_ALL') {
       return <Trash2 className="w-4 h-4 text-red-300" />
     }
+    if (evt.actionType === 'IMPORT_COMMIT') {
+      return <FileInput className="w-4 h-4 text-violet-300" />
+    }
+    if (evt.actionType === 'IMPORT_REJECTED') {
+      return <Ban className="w-4 h-4 text-amber-300" />
+    }
+    if (evt.actionType === 'VERIFICATION_STATUS_UPDATE') {
+      return <ClipboardCheck className="w-4 h-4 text-cyan-300" />
+    }
+    if (evt.actionType === 'INVENTORY_PURGE') {
+      return <AlertTriangle className="w-4 h-4 text-orange-300" />
+    }
+    if (evt.actionType === 'BARCODE_IMPORT') {
+      return <Package className="w-4 h-4 text-slate-400" />
+    }
     return <ArrowUpDown className="w-4 h-4 text-slate-300" />
   }
 
@@ -65,7 +90,8 @@ const ActivityLogPage = () => {
           Historial de Actividad
         </h2>
         <p className="text-sm text-slate-300 mb-4">
-          Línea de tiempo de cambios importantes sobre el inventario: movimientos de stock y gestión de imágenes.
+          Línea de tiempo de cambios importantes: importaciones CSV, rechazos de carga, vaciados, cambios de estado de
+          verificación, movimientos de stock, imágenes y más.
         </p>
 
         {(message || error) && (
@@ -85,7 +111,9 @@ const ActivityLogPage = () => {
 
         {events.length === 0 ? (
           <p className="text-slate-400 text-sm">
-            Aún no hay eventos registrados. Cuando registres movimientos o cambies fotos, aparecerán aquí.
+            Aún no hay eventos registrados. Las importaciones CSV, los rechazos antes de confirmar una carga, los cambios
+            de estado de verificación en Bienes, los movimientos de stock, las actualizaciones de imágenes y otras acciones
+            auditadas aparecerán aquí.
           </p>
         ) : (
           <ol className="relative border-l border-slate-600 pl-4 space-y-6">
@@ -124,24 +152,37 @@ const ActivityLogPage = () => {
                   {evt.detalle && (
                     <p className="text-sm text-slate-100 mb-3">{evt.detalle}</p>
                   )}
+                  {evt.correlationId && (
+                    <p className="text-xs text-slate-400 mb-2">
+                      <span className="font-semibold text-slate-300">ID correlación:</span> {evt.correlationId}
+                    </p>
+                  )}
                   <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div className="flex flex-col gap-1">
-                      <div>
-                        <span className="font-semibold text-slate-200">
-                          Valor anterior:
-                        </span>{' '}
-                        <span className="text-slate-100">
-                          {summarizeValue(evt.previousValue ?? evt.estadoAnterior)}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="font-semibold text-slate-200">
-                          Valor nuevo:
-                        </span>{' '}
-                        <span className="text-slate-100">
-                          {summarizeValue(evt.newValue ?? evt.estadoNuevo)}
-                        </span>
-                      </div>
+                      {evt.actionType !== 'IMPORT_COMMIT' &&
+                        evt.actionType !== 'IMPORT_REJECTED' &&
+                        evt.actionType !== 'INVENTORY_PURGE' &&
+                        evt.actionType !== 'BARCODE_IMPORT' &&
+                        evt.actionType !== 'VERIFICATION_STATUS_UPDATE' && (
+                        <>
+                          <div>
+                            <span className="font-semibold text-slate-200">
+                              Valor anterior:
+                            </span>{' '}
+                            <span className="text-slate-100">
+                              {summarizeValue(evt.previousValue ?? evt.estadoAnterior)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-slate-200">
+                              Valor nuevo:
+                            </span>{' '}
+                            <span className="text-slate-100">
+                              {summarizeValue(evt.newValue ?? evt.estadoNuevo)}
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {evt.reversible !== false && !evt.undone && (

@@ -785,6 +785,151 @@ body {
 .import__modal-actions {
   display: flex;
   gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.import__modal--purge {
+  max-width: 440px;
+}
+
+.import__purge-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+}
+
+.import__purge-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #555;
+  background: #1a1a1a;
+  color: #eee;
+  font-size: 1rem;
+}
+
+.import__block--validation {
+  margin-top: 1rem;
+}
+
+.import__stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.import__stat {
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid #333;
+}
+
+.import__stat--ok {
+  border-color: rgba(76, 175, 80, 0.45);
+}
+
+.import__stat--err {
+  border-color: rgba(244, 67, 54, 0.45);
+}
+
+.import__stat--warn {
+  border-color: rgba(255, 193, 7, 0.45);
+}
+
+.import__stat-label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+  margin-bottom: 0.25rem;
+}
+
+.import__stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.import__validation-msg {
+  font-size: 0.88rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+  margin: 0 0 0.75rem;
+}
+
+.import__validation-msg--error {
+  background: rgba(244, 67, 54, 0.12);
+  border: 1px solid rgba(244, 67, 54, 0.35);
+}
+
+.import__validation-msg--warn {
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.35);
+}
+
+.import__checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+}
+
+.import__report-actions {
+  margin-bottom: 1rem;
+}
+
+.import__preview-title {
+  margin: 1rem 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.import__preview-empty {
+  font-size: 0.9rem;
+  opacity: 0.85;
+  margin: 0 0 0.75rem;
+}
+
+.import__preview-table td {
+  font-size: 0.82rem;
+}
+
+.import__details-errors {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.import__details-errors summary {
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+}
+
+.import__error-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.import__error-item {
+  margin-bottom: 0.35rem;
+}
+
+.import__error-item--blocking {
+  color: #ffab91;
+}
+
+.import__error-item--warn {
+  color: #ffe082;
+}
+
+.import__result-meta {
+  font-size: 0.85rem;
+  opacity: 0.9;
 }
 
 .login__select {

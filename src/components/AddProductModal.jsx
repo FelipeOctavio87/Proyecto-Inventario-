@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useInventory } from '../context/InventoryContext'
+import { useAuth } from '../context/AuthContext'
 import {
   TIPO_BIEN,
   ESTADO_VERIFICACION,
@@ -9,6 +10,7 @@ import {
 
 const AddProductModal = ({ onClose }) => {
   const { addProduct } = useInventory()
+  const { can, PERMISSIONS } = useAuth()
   const [form, setForm] = useState({
     name: '',
     codigoInventario: '',
@@ -33,6 +35,7 @@ const AddProductModal = ({ onClose }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    if (!can(PERMISSIONS.ADD_SINGLE_PRODUCT)) return
     if (!form.name.trim() && !form.codigoInventario.trim()) return
     addProduct({
       ...form,

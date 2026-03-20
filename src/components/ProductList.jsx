@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useProducts } from '../hooks/useProducts'
 import { usePagination } from '../hooks/usePagination'
 import { useInventory } from '../context/InventoryContext'
+import { useAuth } from '../context/AuthContext'
 import { TIPO_BIEN, ESTADO_VERIFICACION } from '../types/product'
 import FichaTecnicaModal from './FichaTecnicaModal'
 import AddProductModal from './AddProductModal'
@@ -13,6 +14,8 @@ const formatCLP = (value) =>
 const ProductList = () => {
   const { products, loading } = useProducts()
   const { updateProduct } = useInventory()
+  const { user, can, PERMISSIONS } = useAuth()
+  const canUpdateVerification = can(PERMISSIONS.UPDATE_VERIFICATION_STATUS)
   const [query, setQuery] = useState('')
   const [tipoBien, setTipoBien] = useState('')
   const [estadoVerificacion, setEstadoVerificacion] = useState('')
@@ -207,8 +210,16 @@ const ProductList = () => {
                   <select
                     className="product-list__estado-select"
                     value={product.estadoVerificacion ?? 'teorico'}
-                    onChange={(e) => updateProduct(product.id, { estadoVerificacion: e.target.value })}
+                    disabled={!canUpdateVerification}
+                    onChange={(e) =>
+                      updateProduct(product.id, { estadoVerificacion: e.target.value }, { actorEmail: user?.email })
+                    }
                     aria-label={`Actualizar estado de ${product.name}`}
+                    title={
+                      canUpdateVerification
+                        ? undefined
+                        : 'Tu rol no permite cambiar el estado de verificación.'
+                    }
                   >
                     {Object.entries(ESTADO_VERIFICACION).map(([value, label]) => (
                       <option key={value} value={value}>{label}</option>

@@ -1,11 +1,15 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import { products as initialProducts } from '../data/products'
+import { loadPersistedInventory, savePersistedInventory } from '../services/inventoryPersistence'
 import { resolveBarcode } from '../utils/resolveBarcode'
 import {
   DEFAULT_UBICACION_FISICA,
   UBICACION_FISICA_OPTIONS,
+  ESTADO_VERIFICACION,
   resolveUbicacionFisicaFromCsv,
 } from '../types/product'
+
+const labelEstadoVerificacion = (code) => ESTADO_VERIFICACION[code] ?? String(code ?? '—')
 
 const InventoryContext = createContext(null)
 
@@ -42,6 +46,36 @@ export const InventoryProvider = ({ children }) => {
   const [products, setProducts] = useState(initialProducts)
   const [movements, setMovements] = useState([])
   const [auditEvents, setAuditEvents] = useState([])
+  const [persistenceHydrated, setPersistenceHydrated] = useState(false)
+  const saveTimerRef = useRef(null)
+
+  useEffect(() => {
+    let cancelled = false
+    loadPersistedInventory().then((data) => {
+      if (cancelled || !data) {
+        setPersistenceHydrated(true)
+        return
+      }
+      if (Array.isArray(data.products)) setProducts(data.products)
+      if (Array.isArray(data.movements)) setMovements(data.movements)
+      if (Array.isArray(data.auditEvents)) setAuditEvents(data.auditEvents)
+      setPersistenceHydrated(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!persistenceHydrated) return
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      savePersistedInventory({ products, movements, auditEvents })
+    }, 500)
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [products, movements, auditEvents, persistenceHydrated])
 
   const logAuditEvent = useCallback((partialEvent) => {
     setAuditEvents((prev) => [
@@ -107,82 +141,271 @@ export const InventoryProvider = ({ children }) => {
 
   /**
    * Añade o reemplaza bienes desde importación CSV.
-   * @param {Array<Object>} rows - Filas parseadas del CSV
-   * @param {{ overwrite?: boolean }} options - overwrite: true = Inventario Inicial (sobrescribe todo), false = Actualización Masiva (añade)
+   * - Modo inicial (`overwrite`): reemplaza todo el inventario por las filas (deduplicadas en UI).
+   * - Modo actualización: merge por SKU — actualiza el bien existente o crea uno nuevo.
+   *
+   * @param {Array<Object>} rows - Filas parseadas (idealmente `appliedRows` de `computeImportPlan`)
+   * @param {{ overwrite?: boolean, actorEmail?: string, fileName?: string | null, correlationId?: string, logBarcodeRowAudit?: boolean }} options
    */
-  const addBienesFromImport = useCallback((rows, options = {}) => {
-    const overwrite = !!options.overwrite
-    const base = overwrite ? [] : products
-    const usedBarcodes = new Set(base.map((p) => String(p.barcode ?? '').trim()).filter(Boolean))
+  const addBienesFromImport = useCallback(
+    (rows, options = {}) => {
+      const overwrite = !!options.overwrite
+      const actor = String(options.actorEmail ?? '').trim() || 'Sistema'
+      const fileName = options.fileName != null ? String(options.fileName) : null
+      const correlationId =
+        options.correlationId ||
+        (typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `imp-${Date.now()}`)
+      const logBarcodeRowAudit = !!options.logBarcodeRowAudit
 
-    let id = nextId(base)
-    const auditToLog = []
-    const newItems = rows.map((row) => {
-      const sku = String(row.codigoInventario ?? row.sku ?? '').trim()
-      const resolved = resolveBarcode(sku, row.barcode, usedBarcodes)
+      let auditToLog = []
+      let summary = {
+        newCount: 0,
+        updatedCount: 0,
+        baseCount: 0,
+        overwrite,
+        appliedRowCount: rows.length,
+      }
 
-      // Marcar para futuras validaciones de duplicidad en esta misma carga.
-      if (resolved.barcode) usedBarcodes.add(resolved.barcode)
+      const pushBarcodeAudit = (sku, resolved) => {
+        if (!logBarcodeRowAudit) return
+        auditToLog.push({
+          usuario: actor,
+          accion: 'Resolución de barcode (importación CSV)',
+          actionType: 'BARCODE_IMPORT',
+          targetSku: sku,
+          sku,
+          correlationId,
+          detalle:
+            resolved.source === 'csv'
+              ? `Barcode usado desde CSV para SKU ${sku}: ${resolved.barcode}`
+              : resolved.source === 'auto'
+                ? `Barcode generado automáticamente (fallback BC-{SKU}) para SKU ${sku}: ${resolved.barcode}`
+                : resolved.source === 'invalid_format_fallback'
+                  ? `Barcode inválido en CSV para SKU ${sku}; se usó fallback: ${resolved.barcode}${
+                      resolved.validationError ? ` (${resolved.validationError})` : ''
+                    }`
+                  : `Barcode duplicado resuelto por sufijo incremental para SKU ${sku}: ${resolved.barcode}`,
+          reversible: false,
+        })
+      }
 
-      auditToLog.push({
-        usuario: 'Sistema',
-        accion: 'Resolución de barcode (importación CSV)',
-        actionType: 'BARCODE_IMPORT',
-        targetSku: sku,
-        sku,
-        detalle:
-          resolved.source === 'csv'
-            ? `Barcode usado desde CSV para SKU ${sku}: ${resolved.barcode}`
-            : resolved.source === 'auto'
-              ? `Barcode generado automáticamente (fallback BC-{SKU}) para SKU ${sku}: ${resolved.barcode}`
-              : resolved.source === 'invalid_format_fallback'
-                ? `Barcode inválido en CSV para SKU ${sku}; se usó fallback: ${resolved.barcode}${
-                    resolved.validationError ? ` (${resolved.validationError})` : ''
-                  }`
-                : `Barcode duplicado resuelto por sufijo incremental para SKU ${sku}: ${resolved.barcode}`,
-        reversible: false,
+      setProducts((prevProducts) => {
+        if (overwrite) {
+          const usedBarcodes = new Set()
+          let id = 1
+          auditToLog = []
+          const newItems = rows.map((row) => {
+            const sku = String(row.codigoInventario ?? row.sku ?? '').trim()
+            const resolved = resolveBarcode(sku, row.barcode, usedBarcodes)
+            if (resolved.barcode) usedBarcodes.add(resolved.barcode)
+            pushBarcodeAudit(sku, resolved)
+
+            return {
+              id: id++,
+              name: row.name ?? '',
+              sku,
+              codigoInventario: sku,
+              barcode: resolved.barcode,
+              ubicacionFisica: resolveUbicacionFisicaFromCsv(row.ubicacionFisica),
+              detalleUbicacion: String(row.detalleUbicacion ?? '').trim(),
+              tipoBien: row.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
+              description: row.description ?? '',
+              quantity: Math.max(0, Number(row.quantity) || 0),
+              price: Math.max(0, Number(row.price) || 0),
+              cost: 0,
+              valorLibros: Math.max(0, Number(row.valorLibros) || 0),
+              estadoVerificacion: ['teorico', 'verificado_terreno', 'no_encontrado'].includes(row.estadoVerificacion)
+                ? row.estadoVerificacion
+                : 'teorico',
+              especificaciones: row.especificaciones ?? '',
+              caracteristicas: row.caracteristicas ?? '',
+              composicion: row.composicion ?? '',
+              material: row.material ?? '',
+              formato: row.formato ?? '',
+              origen: row.origen ?? '',
+              tamano: row.tamano ?? '',
+              certificaciones: row.certificaciones ?? '',
+              imagenesReferenciales: Array.isArray(row.imagenesReferenciales) ? row.imagenesReferenciales : [],
+              version: 1,
+            }
+          })
+
+          summary = {
+            newCount: newItems.length,
+            updatedCount: 0,
+            baseCount: prevProducts.length,
+            overwrite: true,
+            appliedRowCount: rows.length,
+          }
+          return newItems
+        }
+
+        const usedBarcodes = new Set(
+          prevProducts.map((p) => String(p.barcode ?? '').trim()).filter(Boolean)
+        )
+        let next = [...prevProducts]
+        let id = nextId(next)
+        auditToLog = []
+        let created = 0
+        let updated = 0
+
+        for (const row of rows) {
+          const sku = String(row.codigoInventario ?? row.sku ?? '').trim()
+          const idx = next.findIndex((p) => String(p.codigoInventario ?? p.sku ?? '').trim() === sku)
+
+          if (idx === -1) {
+            const resolved = resolveBarcode(sku, row.barcode, usedBarcodes)
+            if (resolved.barcode) usedBarcodes.add(resolved.barcode)
+            pushBarcodeAudit(sku, resolved)
+
+            next.push({
+              id: id++,
+              name: row.name ?? '',
+              sku,
+              codigoInventario: sku,
+              barcode: resolved.barcode,
+              ubicacionFisica: resolveUbicacionFisicaFromCsv(row.ubicacionFisica),
+              detalleUbicacion: String(row.detalleUbicacion ?? '').trim(),
+              tipoBien: row.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
+              description: row.description ?? '',
+              quantity: Math.max(0, Number(row.quantity) || 0),
+              price: Math.max(0, Number(row.price) || 0),
+              cost: 0,
+              valorLibros: Math.max(0, Number(row.valorLibros) || 0),
+              estadoVerificacion: ['teorico', 'verificado_terreno', 'no_encontrado'].includes(row.estadoVerificacion)
+                ? row.estadoVerificacion
+                : 'teorico',
+              especificaciones: row.especificaciones ?? '',
+              caracteristicas: row.caracteristicas ?? '',
+              composicion: row.composicion ?? '',
+              material: row.material ?? '',
+              formato: row.formato ?? '',
+              origen: row.origen ?? '',
+              tamano: row.tamano ?? '',
+              certificaciones: row.certificaciones ?? '',
+              imagenesReferenciales: Array.isArray(row.imagenesReferenciales) ? row.imagenesReferenciales : [],
+              version: 1,
+            })
+            created += 1
+          } else {
+            const p = next[idx]
+            const forResolve = new Set(usedBarcodes)
+            const currentBc = String(p.barcode ?? '').trim()
+            if (currentBc) forResolve.delete(currentBc)
+            const resolved = resolveBarcode(sku, row.barcode, forResolve)
+            if (currentBc && resolved.barcode !== currentBc) usedBarcodes.delete(currentBc)
+            if (resolved.barcode) usedBarcodes.add(resolved.barcode)
+            pushBarcodeAudit(sku, resolved)
+
+            const providedEstado = !!row.estadoVerificacionProvided
+            const nextEstado =
+              providedEstado && ['teorico', 'verificado_terreno', 'no_encontrado'].includes(row.estadoVerificacion)
+                ? row.estadoVerificacion
+                : p.estadoVerificacion
+
+            const rowImages = Array.isArray(row.imagenesReferenciales) ? row.imagenesReferenciales : []
+
+            next[idx] = {
+              ...p,
+              name: row.name ?? p.name,
+              sku,
+              codigoInventario: sku,
+              barcode: resolved.barcode,
+              ubicacionFisica: resolveUbicacionFisicaFromCsv(row.ubicacionFisica),
+              detalleUbicacion:
+                row.detalleUbicacion != null && String(row.detalleUbicacion).trim() !== ''
+                  ? String(row.detalleUbicacion).trim()
+                  : p.detalleUbicacion,
+              tipoBien: row.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
+              description: row.description ?? p.description,
+              quantity: Math.max(0, Number(row.quantity) || 0),
+              price: Math.max(0, Number(row.price) || 0),
+              valorLibros: Math.max(0, Number(row.valorLibros) || 0),
+              estadoVerificacion: nextEstado,
+              especificaciones: row.especificaciones ?? p.especificaciones,
+              caracteristicas: row.caracteristicas ?? p.caracteristicas,
+              composicion: row.composicion ?? p.composicion,
+              material: row.material ?? p.material,
+              formato: row.formato ?? p.formato,
+              origen: row.origen ?? p.origen,
+              tamano: row.tamano ?? p.tamano,
+              certificaciones: row.certificaciones ?? p.certificaciones,
+              imagenesReferenciales: rowImages.length > 0 ? rowImages : p.imagenesReferenciales,
+              version: (p.version ?? 1) + 1,
+            }
+            updated += 1
+          }
+        }
+
+        summary = {
+          newCount: created,
+          updatedCount: updated,
+          baseCount: prevProducts.length,
+          overwrite: false,
+          appliedRowCount: rows.length,
+        }
+        return next
       })
 
-        return {
-          id: id++,
-          name: row.name ?? '',
-          sku,
-          codigoInventario: sku,
-          barcode: resolved.barcode,
-          ubicacionFisica: resolveUbicacionFisicaFromCsv(row.ubicacionFisica),
-          detalleUbicacion: String(row.detalleUbicacion ?? '').trim(),
-          tipoBien: row.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
-          description: row.description ?? '',
-          quantity: Math.max(0, Number(row.quantity) || 0),
-        price: Math.max(0, Number(row.price) || 0),
-        cost: 0,
-        valorLibros: Math.max(0, Number(row.valorLibros) || 0),
-        estadoVerificacion: ['teorico', 'verificado_terreno', 'no_encontrado'].includes(row.estadoVerificacion)
-          ? row.estadoVerificacion
-          : 'teorico',
-        especificaciones: row.especificaciones ?? '',
-        caracteristicas: row.caracteristicas ?? '',
-        composicion: row.composicion ?? '',
-        material: row.material ?? '',
-        formato: row.formato ?? '',
-        origen: row.origen ?? '',
-        tamano: row.tamano ?? '',
-        certificaciones: row.certificaciones ?? '',
-        imagenesReferenciales: Array.isArray(row.imagenesReferenciales) ? row.imagenesReferenciales : [],
-        version: 1,
+      const modeLabel = overwrite ? 'Inventario inicial (sobrescritura)' : 'Actualización masiva (merge por SKU)'
+      const detailParts = overwrite
+        ? [`${summary.newCount} bien(es) cargado(s)`]
+        : [
+            `${summary.newCount} alta(s)`,
+            `${summary.updatedCount} actualización(es)`,
+            `${summary.appliedRowCount} fila(s) única(s) por SKU aplicada(s)`,
+          ]
+      logAuditEvent({
+        usuario: actor,
+        accion: 'Importación CSV confirmada',
+        actionType: 'IMPORT_COMMIT',
+        correlationId,
+        reversible: false,
+        detalle: `${modeLabel}: ${detailParts.join('; ')}.${fileName ? ` Archivo: ${fileName}.` : ''}`,
+        metadata: {
+          rowCount: summary.appliedRowCount,
+          createdCount: summary.newCount,
+          updatedCount: summary.updatedCount,
+          overwrite: summary.overwrite,
+          fileName,
+          previousProductCount: summary.baseCount,
+        },
+      })
+
+      auditToLog.forEach((evt) => logAuditEvent(evt))
+    },
+    [logAuditEvent]
+  )
+
+  /**
+   * Vacía productos y movimientos (solo administrador en UI).
+   * Conserva el historial de auditoría y registra INVENTORY_PURGE.
+   * @param {{ actorEmail?: string, snapshot?: { productCount: number, movementCount: number, auditEventCount: number, totalUnidades: number } }} options
+   */
+  const vaciarInventario = useCallback(
+    (options = {}) => {
+      const actor = String(options.actorEmail ?? '').trim() || 'Desconocido'
+      const snap = options.snapshot ?? {
+        productCount: 0,
+        movementCount: 0,
+        auditEventCount: 0,
+        totalUnidades: 0,
       }
-    })
-
-    setProducts([...base, ...newItems])
-    auditToLog.forEach((evt) => logAuditEvent(evt))
-  }, [products, logAuditEvent])
-
-  /** Vacía todo el inventario (solo uso Administrador). Reinicia productos, movimientos y auditoría. */
-  const vaciarInventario = useCallback(() => {
-    setProducts(initialProducts)
-    setMovements([])
-    setAuditEvents([])
-  }, [])
+      logAuditEvent({
+        usuario: actor,
+        accion: 'Vaciado de inventario',
+        actionType: 'INVENTORY_PURGE',
+        reversible: false,
+        detalle: `Inventario vaciado: ${snap.productCount} activos, ${snap.totalUnidades ?? 0} unidades en stock, ${snap.movementCount} movimientos eliminados de memoria. Eventos de auditoría previos: ${snap.auditEventCount}.`,
+        metadata: { ...snap },
+      })
+      setProducts(initialProducts)
+      setMovements([])
+    },
+    [logAuditEvent]
+  )
 
   /** Añade un único bien (para Colaborador: ítem individual). */
   const addProduct = useCallback((product) => {
@@ -227,20 +450,58 @@ export const InventoryProvider = ({ children }) => {
     })
   }, [])
 
-  /** Actualiza un bien existente (p. ej. estado de verificación). */
-  const updateProduct = useCallback((productId, partial) => {
-    if (!productId || !partial || typeof partial !== 'object') return
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id !== productId) return p
-        const updates = { ...partial }
-        if ('quantity' in updates && updates.quantity !== undefined) {
-          updates.quantity = Math.max(0, Number(updates.quantity) || 0)
-        }
-        return { ...p, ...updates, version: (p.version ?? 1) + 1 }
-      })
-    )
-  }, [])
+  /**
+   * Actualiza un bien existente (p. ej. estado de verificación, ubicación).
+   * @param {number|string} productId
+   * @param {Record<string, unknown>} partial
+   * @param {{ actorEmail?: string }} [options]
+   */
+  const updateProduct = useCallback(
+    (productId, partial, options = {}) => {
+      if (!productId || !partial || typeof partial !== 'object') return
+      const actor = String(options.actorEmail ?? '').trim() || 'Sistema'
+      let verificationAudit = null
+
+      setProducts((prev) =>
+        prev.map((p) => {
+          if (p.id !== productId) return p
+          const updates = { ...partial }
+          if ('quantity' in updates && updates.quantity !== undefined) {
+            updates.quantity = Math.max(0, Number(updates.quantity) || 0)
+          }
+          if ('estadoVerificacion' in updates) {
+            const oldE = p.estadoVerificacion ?? 'teorico'
+            const newE = updates.estadoVerificacion
+            if (oldE !== newE) {
+              const sku = p.codigoInventario ?? p.sku ?? '—'
+              verificationAudit = {
+                usuario: actor,
+                accion: 'Cambio de estado de verificación',
+                actionType: 'VERIFICATION_STATUS_UPDATE',
+                productoId: p.id,
+                sku,
+                targetSku: sku,
+                detalle: `"${p.name}" (${sku}): ${labelEstadoVerificacion(oldE)} → ${labelEstadoVerificacion(newE)}`,
+                reversible: false,
+                metadata: {
+                  estadoAnterior: oldE,
+                  estadoNuevo: newE,
+                  estadoAnteriorLabel: labelEstadoVerificacion(oldE),
+                  estadoNuevoLabel: labelEstadoVerificacion(newE),
+                },
+              }
+            }
+          }
+          return { ...p, ...updates, version: (p.version ?? 1) + 1 }
+        })
+      )
+
+      if (verificationAudit) {
+        logAuditEvent(verificationAudit)
+      }
+    },
+    [logAuditEvent]
+  )
 
   const addProductImages = useCallback((productId, newImageUrls) => {
     if (!productId || !Array.isArray(newImageUrls) || newImageUrls.length === 0) return

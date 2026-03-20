@@ -1,18 +1,22 @@
 import { useCallback, useState, useRef } from 'react'
 import { useDropzone } from 'react-dropzone'
 import JSZip from 'jszip'
-import { Upload, Trash2, Camera, CheckCircle, X, Loader2 } from 'lucide-react'
+import { Upload, Trash2, Camera, CheckCircle, X, Loader2, AlertCircle } from 'lucide-react'
 import { useInventory } from '../context/InventoryContext'
 import { useAuth } from '../context/AuthContext'
+import { sanitizeSKU } from '../utils/parseCsvBienes'
 
 /** Extensiones de imagen que aceptamos (en dropzone y dentro del ZIP) */
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp)$/i
 
-/** Normaliza SKU: quita .0 final y espacios (sanitización) */
-const normalizeSku = (value) =>
-  String(value ?? '')
+/** Clave de SKU alineada con importación CSV (alfanumérico + ._-) */
+const skuKey = (value) => {
+  const r = sanitizeSKU(value)
+  if (r.valid) return r.value
+  return String(value ?? '')
     .trim()
     .replace(/\.0+$/, '')
+}
 
 const getNameWithoutExtension = (filename) => {
   const lastDot = filename.lastIndexOf('.')
@@ -73,62 +77,141 @@ export default function GestorImagenes() {
   const [showErrors, setShowErrors] = useState(false)
   const [lightboxSrc, setLightboxSrc] = useState(null)
   const [zipLoading, setZipLoading] = useState(false)
+  const [pendingBulk, setPendingBulk] = useState(null)
   const fileInputRef = useRef(null)
   const uploadTargetIdRef = useRef(null)
+
+  const revokePendingPreviews = useCallback((bulk) => {
+    if (!bulk?.matched) return
+    bulk.matched.forEach((m) => {
+      if (m.previewUrl) {
+        try {
+          URL.revokeObjectURL(m.previewUrl)
+        } catch {
+          /* ignore */
+        }
+      }
+    })
+  }, [])
+
+  const analyzeBulkFiles = useCallback(
+    (acceptedFiles) => {
+      if (!acceptedFiles?.length) return null
+      const skuToProduct = new Map()
+      products.forEach((p) => {
+        const key = skuKey(p.codigoInventario ?? p.sku)
+        if (key) skuToProduct.set(key, p)
+      })
+
+      const matched = []
+      const unmatchedFiles = []
+      const duplicateInBatch = []
+      const formatInvalid = []
+      const seenSku = new Map()
+
+      acceptedFiles.forEach((file) => {
+        if (!IMAGE_EXT.test(file.name)) {
+          formatInvalid.push(file.name)
+          return
+        }
+        const base = getNameWithoutExtension(file.name)
+        const res = sanitizeSKU(base)
+        const key = res.valid ? res.value : String(base).trim()
+        if (!res.valid && !/^[A-Za-z0-9._-]+$/.test(String(base).trim())) {
+          formatInvalid.push(file.name)
+          return
+        }
+        const product = key ? skuToProduct.get(key) : null
+        if (!product) {
+          unmatchedFiles.push({ fileName: file.name, reason: 'SKU_INEXISTENTE' })
+          return
+        }
+        if (seenSku.has(key)) {
+          duplicateInBatch.push({
+            sku: key,
+            file: file.name,
+            firstFile: seenSku.get(key),
+          })
+          return
+        }
+        seenSku.set(key, file.name)
+        matched.push({
+          file,
+          product,
+          sku: key,
+          productName: product.name,
+          previewUrl: URL.createObjectURL(file),
+        })
+      })
+
+      return { matched, unmatchedFiles, duplicateInBatch, formatInvalid }
+    },
+    [products]
+  )
+
+  const discardPendingBulk = useCallback(() => {
+    setPendingBulk((prev) => {
+      if (prev) revokePendingPreviews(prev)
+      return null
+    })
+  }, [revokePendingPreviews])
+
+  const confirmBulkApplication = useCallback(() => {
+    if (!pendingBulk?.matched?.length) {
+      setPendingBulk(null)
+      return
+    }
+    const matched = pendingBulk.matched
+    matched.forEach(({ product, sku, previewUrl }) => {
+      const beforeImages = Array.isArray(product.imagenesReferenciales)
+        ? [...product.imagenesReferenciales]
+        : []
+      const afterImages = [...beforeImages, previewUrl]
+      addProductImages(product.id, [previewUrl])
+      const baseVersion = product.version ?? 1
+      logAuditEvent({
+        usuario: user?.email || 'Sistema',
+        accion: 'Carga de Imagen',
+        actionType: 'IMAGE_UPDATE',
+        targetSku: product.codigoInventario ?? product.sku ?? sku,
+        previousValue: beforeImages,
+        newValue: afterImages,
+        detalle: `Se agregó una imagen al producto "${product.name}" (SKU ${product.codigoInventario ?? product.sku ?? sku}).`,
+        productoId: product.id,
+        sku: product.codigoInventario ?? product.sku ?? sku,
+        estadoAnterior: { imagenesReferenciales: beforeImages, version: baseVersion },
+        estadoNuevo: { imagenesReferenciales: afterImages, version: baseVersion + 1 },
+        reversible: true,
+      })
+    })
+    const productosSinFoto = products.filter(
+      (p) => !Array.isArray(p.imagenesReferenciales) || p.imagenesReferenciales.length === 0
+    ).length
+    setLastResult({
+      successCount: matched.length,
+      errorCount: pendingBulk.unmatchedFiles.length + pendingBulk.duplicateInBatch.length,
+      matched: matched.map((m) => ({
+        url: m.previewUrl,
+        productName: m.productName,
+        sku: m.sku,
+      })),
+      unmatched: pendingBulk.unmatchedFiles.map((u) => u.fileName),
+      duplicateInBatch: pendingBulk.duplicateInBatch,
+      formatInvalid: pendingBulk.formatInvalid,
+      productosSinFoto,
+    })
+    setPendingBulk(null)
+  }, [pendingBulk, addProductImages, logAuditEvent, user, products])
 
   const processFiles = useCallback(
     (acceptedFiles) => {
       if (!acceptedFiles?.length) return
-      const skuToProduct = new Map()
-      products.forEach((p) => {
-        const sku = normalizeSku(p.codigoInventario ?? p.sku)
-        if (sku) skuToProduct.set(sku, p)
-      })
-      const matched = []
-      const unmatched = []
-      acceptedFiles.forEach((file) => {
-        const nameWithoutExt = getNameWithoutExtension(file.name)
-        const sku = normalizeSku(nameWithoutExt)
-        const product = sku ? skuToProduct.get(sku) : null
-        if (product) {
-          const url = URL.createObjectURL(file)
-          const beforeImages = Array.isArray(product.imagenesReferenciales)
-            ? [...product.imagenesReferenciales]
-            : []
-          const afterImages = [...beforeImages, url]
-          addProductImages(product.id, [url])
-          matched.push({ file, url, productName: product.name, sku })
-          const baseVersion = product.version ?? 1
-          logAuditEvent({
-            usuario: user?.email || 'Felipe Rebolledo',
-            accion: 'Carga de Imagen',
-            actionType: 'IMAGE_UPDATE',
-            targetSku: product.codigoInventario ?? product.sku ?? sku,
-            previousValue: beforeImages,
-            newValue: afterImages,
-            detalle: `Se agregó una imagen al producto "${product.name}" (SKU ${product.codigoInventario ?? product.sku ?? sku}).`,
-            productoId: product.id,
-            sku: product.codigoInventario ?? product.sku ?? sku,
-            estadoAnterior: { imagenesReferenciales: beforeImages, version: baseVersion },
-            estadoNuevo: { imagenesReferenciales: afterImages, version: baseVersion + 1 },
-            reversible: true,
-          })
-        } else {
-          unmatched.push(file.name)
-        }
-      })
-      const productosSinFoto = products.filter(
-        (p) => !Array.isArray(p.imagenesReferenciales) || p.imagenesReferenciales.length === 0
-      ).length
-      setLastResult({
-        successCount: matched.length,
-        errorCount: unmatched.length,
-        matched,
-        unmatched,
-        productosSinFoto,
+      setPendingBulk((prev) => {
+        if (prev) revokePendingPreviews(prev)
+        return analyzeBulkFiles(acceptedFiles)
       })
     },
-    [products, addProductImages, logAuditEvent, user]
+    [analyzeBulkFiles, revokePendingPreviews]
   )
 
   const onDrop = useCallback(
@@ -289,6 +372,95 @@ export default function GestorImagenes() {
               </p>
             </div>
 
+            {pendingBulk && (
+              <div
+                className="mt-5 rounded-lg border border-indigo-500/50 bg-slate-900/80 p-4 space-y-3"
+                role="region"
+                aria-label="Vista previa de carga masiva de imágenes"
+              >
+                <div className="flex items-center gap-2 text-indigo-200 font-semibold text-sm">
+                  <AlertCircle className="w-5 h-5 shrink-0" />
+                  Revisa el diagnóstico antes de aplicar
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-4 text-xs text-slate-200">
+                  <div>
+                    <span className="text-emerald-400 font-semibold">{pendingBulk.matched.length}</span> vincularán
+                    correctamente
+                  </div>
+                  <div>
+                    <span className="text-amber-400 font-semibold">{pendingBulk.unmatchedFiles.length}</span> SKU
+                    inexistente
+                  </div>
+                  <div>
+                    <span className="text-orange-400 font-semibold">{pendingBulk.duplicateInBatch.length}</span>{' '}
+                    duplicado en este lote
+                  </div>
+                  <div>
+                    <span className="text-red-400 font-semibold">{pendingBulk.formatInvalid.length}</span> formato no
+                    válido
+                  </div>
+                </div>
+                {pendingBulk.matched.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-slate-300 mb-2">Vista previa (aplicar)</h4>
+                    <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                      {pendingBulk.matched.map((m, i) => (
+                        <div
+                          key={i}
+                          className="flex flex-col items-center rounded-lg overflow-hidden border border-slate-600 bg-slate-800 w-20"
+                        >
+                          <img src={m.previewUrl} alt="" className="w-full h-16 object-cover" />
+                          <span className="text-[10px] text-slate-400 truncate w-full px-1 py-0.5 text-center">
+                            {m.sku}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {(pendingBulk.unmatchedFiles.length > 0 ||
+                  pendingBulk.duplicateInBatch.length > 0 ||
+                  pendingBulk.formatInvalid.length > 0) && (
+                  <ul className="text-xs text-slate-400 space-y-1 max-h-32 overflow-y-auto list-disc list-inside">
+                    {pendingBulk.formatInvalid.map((name, i) => (
+                      <li key={`f-${i}`}>
+                        <span className="text-red-300">Formato no válido</span>: {name}
+                      </li>
+                    ))}
+                    {pendingBulk.unmatchedFiles.map((u, i) => (
+                      <li key={`u-${i}`}>
+                        <span className="text-amber-300">SKU inexistente</span>: {u.fileName}
+                      </li>
+                    ))}
+                    {pendingBulk.duplicateInBatch.map((d, i) => (
+                      <li key={`d-${i}`}>
+                        <span className="text-orange-300">Duplicado en lote</span> SKU {d.sku}: {d.file} (ya usado{' '}
+                        {d.firstFile})
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={confirmBulkApplication}
+                    disabled={pendingBulk.matched.length === 0}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Confirmar y aplicar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={discardPendingBulk}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-500 text-slate-200 text-sm hover:bg-slate-700/50"
+                  >
+                    Descartar
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <button
                 type="button"
@@ -318,7 +490,7 @@ export default function GestorImagenes() {
                       <span className="font-semibold text-amber-300">
                         {lastResult.errorCount}
                       </span>{' '}
-                      fotos sin SKU coincidente
+                      no aplicadas (sin SKU, duplicado en lote o formato)
                     </div>
                     <div>
                       <span className="font-semibold text-sky-300">
