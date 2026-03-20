@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { useInventory } from '../context/InventoryContext'
-import { TIPO_BIEN, ESTADO_VERIFICACION } from '../types/product'
+import {
+  TIPO_BIEN,
+  ESTADO_VERIFICACION,
+  UBICACION_FISICA_OPTIONS,
+  DEFAULT_UBICACION_FISICA,
+} from '../types/product'
 
 const AddProductModal = ({ onClose }) => {
   const { addProduct } = useInventory()
@@ -13,6 +18,8 @@ const AddProductModal = ({ onClose }) => {
     quantity: 1,
     valorLibros: 0,
     estadoVerificacion: 'teorico',
+    ubicacionFisica: DEFAULT_UBICACION_FISICA,
+    detalleUbicacion: '',
   })
 
   const handleChange = (e) => {
@@ -122,6 +129,42 @@ const AddProductModal = ({ onClose }) => {
               ))}
             </select>
           </label>
+
+          <div className="ficha-ubicacion ficha-ubicacion--in-modal" aria-labelledby="ubicacion-bloque-titulo">
+            <h4 id="ubicacion-bloque-titulo" className="ficha-ubicacion__title">
+              Ubicación Física
+            </h4>
+            <label className="ficha-ubicacion__label" htmlFor="add-product-ubicacion">
+              Bodega <span className="ficha-ubicacion__req">*</span>
+            </label>
+            <select
+              id="add-product-ubicacion"
+              name="ubicacionFisica"
+              value={form.ubicacionFisica}
+              onChange={handleChange}
+              className="ficha-ubicacion__select"
+              required
+            >
+              {UBICACION_FISICA_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <label className="ficha-ubicacion__label" htmlFor="add-product-detalle-ubicacion">
+              Detalle de ubicación <span className="ficha-ubicacion__optional">(opcional)</span>
+            </label>
+            <textarea
+              id="add-product-detalle-ubicacion"
+              name="detalleUbicacion"
+              value={form.detalleUbicacion}
+              onChange={handleChange}
+              className="ficha-ubicacion__textarea"
+              placeholder="Estante, pasillo, nivel u observaciones"
+              rows={3}
+            />
+          </div>
+
           <div className="add-product-actions">
             <button type="submit" className="import__btn">Guardar</button>
             <button type="button" className="import__btn import__btn--secondary" onClick={onClose}>

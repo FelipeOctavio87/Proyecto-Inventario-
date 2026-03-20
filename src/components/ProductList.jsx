@@ -116,10 +116,10 @@ const ProductList = () => {
         </button>
       </div>
 
-      <div className="mb-4 rounded-lg border border-slate-600 bg-slate-800/20 p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex-1">
-            <label className="block text-xs text-slate-300 mb-1" htmlFor="bienes-search">
+      <div className="product-list__filter-card">
+        <div className="product-list__filters-layout">
+          <div className="product-list__filter-search">
+            <label className="product-list__filter-label" htmlFor="bienes-search">
               Búsqueda (SKU/código o nombre)
             </label>
             <input
@@ -127,17 +127,17 @@ const ProductList = () => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Ej. 8000008164911 o 'Escritorio'"
-              className="w-full rounded border border-slate-500 bg-slate-900/30 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="product-list__filter-input"
             />
           </div>
 
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="product-list__filters-controls">
             <div>
-              <label className="block text-xs text-slate-300 mb-1">Tipo de bien</label>
+              <label className="product-list__filter-label">Tipo de bien</label>
               <select
                 value={tipoBien}
                 onChange={(e) => setTipoBien(e.target.value)}
-                className="product-list__estado-select"
+                className="product-list__filter-select"
               >
                 <option value="">Todos</option>
                 {Object.entries(TIPO_BIEN).map(([key, label]) => (
@@ -147,11 +147,11 @@ const ProductList = () => {
             </div>
 
             <div>
-              <label className="block text-xs text-slate-300 mb-1">Estado verificación</label>
+              <label className="product-list__filter-label">Estado verificación</label>
               <select
                 value={estadoVerificacion}
                 onChange={(e) => setEstadoVerificacion(e.target.value)}
-                className="product-list__estado-select"
+                className="product-list__filter-select"
               >
                 <option value="">Todos</option>
                 {Object.entries(ESTADO_VERIFICACION).map(([key, label]) => (
@@ -160,17 +160,19 @@ const ProductList = () => {
               </select>
             </div>
 
-            <button
-              type="button"
-              className="import__btn import__btn--secondary"
-              onClick={() => {
-                setQuery('')
-                setTipoBien('')
-                setEstadoVerificacion('')
-              }}
-            >
-              Limpiar
-            </button>
+            <div className="product-list__clear-wrap">
+              <button
+                type="button"
+                className="product-list__clear-btn"
+                onClick={() => {
+                  setQuery('')
+                  setTipoBien('')
+                  setEstadoVerificacion('')
+                }}
+              >
+                Limpiar
+              </button>
+            </div>
           </div>
         </div>
       </div>

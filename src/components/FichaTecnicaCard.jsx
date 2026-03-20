@@ -1,4 +1,4 @@
-import { TIPO_BIEN, FICHA_TECNICA_LABELS } from '../types/product'
+import { TIPO_BIEN, FICHA_TECNICA_LABELS, ESTADO_VERIFICACION, labelUbicacionFisica } from '../types/product'
 
 const PLACEHOLDER_NO_PHOTO = `${import.meta.env.BASE_URL}sin-foto.png`
 
@@ -42,6 +42,18 @@ const FichaTecnicaCard = ({ product, onPhotoClick }) => {
         <p className="ficha-card__line">
           <strong>Cantidad:</strong> {product.quantity} · <strong>Valor en libros:</strong> {formatCLP(product.valorLibros)}
         </p>
+        <p className="ficha-card__line">
+          <strong>Estado de verificación:</strong>{' '}
+          {ESTADO_VERIFICACION[product.estadoVerificacion] ?? product.estadoVerificacion ?? '—'}
+        </p>
+        <p className="ficha-card__line">
+          <strong>Ubicación Física:</strong> {labelUbicacionFisica(product.ubicacionFisica)}
+        </p>
+        {product.detalleUbicacion?.trim() ? (
+          <p className="ficha-card__line">
+            <strong>Detalle de ubicación:</strong> {product.detalleUbicacion}
+          </p>
+        ) : null}
         </div>
       </div>
       <div

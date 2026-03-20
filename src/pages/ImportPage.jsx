@@ -11,6 +11,8 @@ const MAP_LABELS = {
   tipoBien: 'Tipo de bien',
   barcode: 'Código de barras',
   description: 'Descripción',
+  ubicacionFisica: 'Ubicación física (bodega)',
+  detalleUbicacion: 'Detalle de ubicación',
   quantity: 'Cantidad',
   valorLibros: 'Valor en libros',
   price: 'Precio venta unitario',
@@ -177,7 +179,7 @@ const ImportPage = () => {
                 </table>
               </div>
               <p className="import__format-note">
-                <strong>Campos que reconoce la app:</strong> codigoInventario (o SKU), name (o Producto/Nombre), quantity (o Unidades), valorLibros (o Costo unitario), tipoBien, description, estadoVerificacion.
+                <strong>Campos que reconoce la app:</strong> codigoInventario (o SKU), name (o Producto/Nombre), quantity (o Unidades), valorLibros (o Costo unitario), tipoBien, description, barcode, ubicacionFisica (o bodega/ubicación), detalleUbicacion, estadoVerificacion.
               </p>
             </div>
 

@@ -1,3 +1,5 @@
+import { resolveUbicacionFisicaFromCsv } from '../types/product'
+
 /**
  * Parsea CSV de bienes para importación masiva.
  * Espera encabezado: codigoInventario,name,tipoBien,description,quantity,valorLibros,estadoVerificacion
@@ -151,6 +153,12 @@ const mapHeaders = (rawHeaders) => {
     if (n === 'valorlibros' || n === 'valor' || n === 'valorlibro' || n === 'costounitario' || n === 'costo') return 'valorLibros'
     if (n === 'estadoverificacion' || n === 'estado') return 'estadoVerificacion'
     if (n === 'precioventaunitario' || n === 'precioventa' || n === 'precio' || n === 'price') return 'price'
+    if (n === 'ubicacionfisica' || n === 'ubicacion' || n === 'bodega') {
+      return 'ubicacionFisica'
+    }
+    if (n === 'detalleubicacion' || n === 'detalleubicacionfisica' || n === 'detalleubicacin') {
+      return 'detalleUbicacion'
+    }
     return `col${i}`
   })
 }
@@ -179,7 +187,16 @@ export const parseCsvBienes = (text) => {
     headers.forEach((h, j) => {
       const rawValue = values[j] !== undefined ? String(values[j]).trim() : ''
       // Mantener columnas de texto/categoría como string (evita perder ceros a la izquierda en códigos)
-      const TEXT_FIELDS = new Set(['codigoInventario', 'name', 'tipoBien', 'description', 'estadoVerificacion', 'barcode'])
+      const TEXT_FIELDS = new Set([
+        'codigoInventario',
+        'name',
+        'tipoBien',
+        'description',
+        'estadoVerificacion',
+        'barcode',
+        'ubicacionFisica',
+        'detalleUbicacion',
+      ])
       if (TEXT_FIELDS.has(h)) {
         row[h] = rawValue
         return
@@ -233,6 +250,8 @@ export const parseCsvBienes = (text) => {
       tipoBien: row.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
       description: (row.description || '').trim(),
       barcode,
+      ubicacionFisica: resolveUbicacionFisicaFromCsv(row.ubicacionFisica),
+      detalleUbicacion: String(row.detalleUbicacion ?? '').trim(),
       quantity,
       valorLibros,
       price,
@@ -250,6 +269,8 @@ const KNOWN_FIELDS = new Set([
   'tipoBien',
   'barcode',
   'description',
+  'ubicacionFisica',
+  'detalleUbicacion',
   'quantity',
   'valorLibros',
   'price',
@@ -279,12 +300,12 @@ export const EXAMPLE_CSV_HEADER =
   'Producto,SKU,Unidades,Costo unitario,Costo Total,Precio venta unitario,Total Venta'
 
 export const CSV_TEMPLATE_HEADER =
-  'codigoInventario,name,tipoBien,description,barcode,quantity,valorLibros,estadoVerificacion'
+  'codigoInventario,name,tipoBien,description,barcode,ubicacionFisica,detalleUbicacion,quantity,valorLibros,estadoVerificacion'
 
 export const getCsvTemplateBlob = () => {
   const header = CSV_TEMPLATE_HEADER
   const example =
-    'INV-M-2026-0001,Escritorio oficina,mueble,Escritorio metálico,1,85000,teorico'
+    'INV-M-2026-0001,Escritorio oficina,mueble,Escritorio metálico,,bodega_a_barroso,Estante B2,1,85000,teorico'
   const csv = [header, example].join('\n')
   return new Blob([csv], { type: 'text/csv;charset=utf-8;' })
 }

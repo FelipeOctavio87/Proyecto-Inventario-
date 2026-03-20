@@ -1,4 +1,11 @@
-import { TIPO_BIEN, ESTADO_VERIFICACION } from '../types/product'
+import { useEffect, useState } from 'react'
+import {
+  TIPO_BIEN,
+  ESTADO_VERIFICACION,
+  UBICACION_FISICA_OPTIONS,
+  DEFAULT_UBICACION_FISICA,
+  labelUbicacionFisica,
+} from '../types/product'
 import { useInventory } from '../context/InventoryContext'
 import { useProducts } from '../hooks/useProducts'
 import BarcodeDisplay from './BarcodeDisplay'
@@ -33,9 +40,23 @@ const readFilesAsDataUrls = (files) => {
 }
 
 const FichaTecnicaModal = ({ product, onClose }) => {
-  const { addProductImages } = useInventory()
+  const { addProductImages, updateProduct } = useInventory()
   const { products } = useProducts()
   const currentProduct = product ? (products.find((p) => p.id === product.id) ?? product) : null
+
+  const [ubicacionEdit, setUbicacionEdit] = useState(DEFAULT_UBICACION_FISICA)
+  const [detalleUbicacionEdit, setDetalleUbicacionEdit] = useState('')
+  const [ubicacionFeedback, setUbicacionFeedback] = useState('')
+
+  useEffect(() => {
+    if (!currentProduct) return
+    const u = currentProduct.ubicacionFisica
+    setUbicacionEdit(
+      UBICACION_FISICA_OPTIONS.some((o) => o.value === u) ? u : DEFAULT_UBICACION_FISICA
+    )
+    setDetalleUbicacionEdit(String(currentProduct.detalleUbicacion ?? ''))
+    setUbicacionFeedback('')
+  }, [currentProduct?.id, currentProduct?.ubicacionFisica, currentProduct?.detalleUbicacion])
 
   if (!currentProduct) return null
 
@@ -50,6 +71,15 @@ const FichaTecnicaModal = ({ product, onClose }) => {
       addProductImages(currentProduct.id, urls)
     })
     e.target.value = ''
+  }
+
+  const handleGuardarUbicacion = () => {
+    if (!ubicacionEdit) return
+    updateProduct(currentProduct.id, {
+      ubicacionFisica: ubicacionEdit,
+      detalleUbicacion: detalleUbicacionEdit.trim(),
+    })
+    setUbicacionFeedback('Ubicación guardada.')
   }
 
   return (
@@ -132,6 +162,68 @@ const FichaTecnicaModal = ({ product, onClose }) => {
               </tr>
             </tbody>
           </table>
+
+          <div className="ficha-ubicacion">
+            <h4 className="ficha-ubicacion__title">Ubicación Física</h4>
+            <p className="ficha-ubicacion__summary">
+              <span className="ficha-ubicacion__summary-label">Ubicación Física:</span>{' '}
+              {labelUbicacionFisica(currentProduct.ubicacionFisica)}
+            </p>
+            {currentProduct.detalleUbicacion?.trim() ? (
+              <p className="ficha-ubicacion__summary">
+                <span className="ficha-ubicacion__summary-label">Detalle de ubicación:</span>{' '}
+                {currentProduct.detalleUbicacion}
+              </p>
+            ) : null}
+
+            <div className="ficha-ubicacion__fields">
+              <label className="ficha-ubicacion__label" htmlFor="ficha-ubicacion-select">
+                Bodega <span className="ficha-ubicacion__req">*</span>
+              </label>
+              <select
+                id="ficha-ubicacion-select"
+                className="ficha-ubicacion__select"
+                value={ubicacionEdit}
+                onChange={(e) => {
+                  setUbicacionEdit(e.target.value)
+                  setUbicacionFeedback('')
+                }}
+                required
+              >
+                {UBICACION_FISICA_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+
+              <label className="ficha-ubicacion__label" htmlFor="ficha-ubicacion-detalle">
+                Detalle de ubicación <span className="ficha-ubicacion__optional">(opcional)</span>
+              </label>
+              <textarea
+                id="ficha-ubicacion-detalle"
+                className="ficha-ubicacion__textarea"
+                value={detalleUbicacionEdit}
+                onChange={(e) => {
+                  setDetalleUbicacionEdit(e.target.value)
+                  setUbicacionFeedback('')
+                }}
+                placeholder="Estante, pasillo, nivel u observaciones"
+                rows={3}
+              />
+
+              <div className="ficha-ubicacion__actions">
+                <button type="button" className="ficha-ubicacion__btn" onClick={handleGuardarUbicacion}>
+                  Guardar ubicación
+                </button>
+                {ubicacionFeedback ? (
+                  <span className="ficha-ubicacion__feedback" role="status">
+                    {ubicacionFeedback}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <button type="button" className="ficha-tecnica-overlay__backdrop" onClick={onClose} aria-label="Cerrar" />

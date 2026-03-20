@@ -288,6 +288,150 @@ body {
   color: #1a1a1a;
 }
 
+/* Filtros de Bienes (estilo dashboard moderno) */
+.product-list__filter-card {
+  margin-bottom: 1rem;
+  background: #f7f9fc;
+  border: 1px solid #e6e9ef;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 16px 20px;
+}
+
+.product-list__filters-layout {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px 24px;
+}
+
+/* Evita solapamiento: sin min-width: 0 el hijo flex con input width:100% desborda y tapa los selects */
+.product-list__filter-search {
+  flex: 1 1 min(100%, 320px);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.product-list__filters-controls {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  flex: 1 1 280px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Cada bloque label+select: crece pero no fuerza solapamiento con la búsqueda */
+.product-list__filters-controls > div:not(.product-list__clear-wrap) {
+  flex: 1 1 12rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.product-list__filter-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  color: #344054;
+}
+
+.product-list__filter-input,
+.product-list__filter-select {
+  box-sizing: border-box;
+  height: 40px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+  font-size: 0.9rem;
+  padding: 0 12px;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.product-list__filter-input::placeholder {
+  color: #9aa0a6;
+}
+
+.product-list__filter-input:hover,
+.product-list__filter-select:hover,
+.product-list__filter-input:focus,
+.product-list__filter-select:focus {
+  border-color: #646cff;
+  box-shadow: 0 0 0 2px rgba(100, 108, 255, 0.16);
+}
+
+.product-list__clear-wrap {
+  margin-left: 16px;
+  flex-shrink: 0;
+}
+
+.product-list__clear-btn {
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  background: #fff;
+  color: #344054;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.product-list__clear-btn:hover {
+  background: #f0f2f5;
+  border-color: #b9c0cb;
+}
+
+/* Pestaña Bienes: por debajo de ~1100px apilar búsqueda y filtros (evita solapamiento leve) */
+@media (max-width: 1100px) {
+  .product-list__filters-layout {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .product-list__filter-search {
+    flex: none;
+    width: 100%;
+  }
+
+  .product-list__filters-controls {
+    flex: none;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .product-list__clear-wrap {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .product-list__filters-layout {
+    gap: 12px;
+  }
+
+  .product-list__filters-controls {
+    gap: 12px;
+  }
+
+  .product-list__filter-input,
+  .product-list__filter-select {
+    min-width: 0;
+  }
+
+  .product-list__clear-wrap {
+    margin-left: 0;
+    margin-top: 0.25rem;
+  }
+}
+
 .product-list__empty-actions {
   display: flex;
   align-items: center;
@@ -867,6 +1011,134 @@ body {
   margin: 0 0 1rem;
   font-size: 0.9rem;
   color: rgba(255, 255, 255, 0.7);
+}
+
+/* Ubicación física (ficha técnica + modal alta ítem)
+   Caja clara + texto oscuro: contraste con inputs blancos y fondos oscuros de modal */
+.ficha-ubicacion {
+  margin: 1.25rem 0;
+  padding: 1rem 1.1rem;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.ficha-ubicacion__title {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #101828;
+}
+
+.ficha-ubicacion__summary {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  color: #344054;
+  line-height: 1.45;
+}
+
+.ficha-ubicacion__summary-label {
+  color: #475467;
+  font-weight: 600;
+}
+
+.ficha-ubicacion__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ficha-ubicacion__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #344054;
+  margin-top: 0.5rem;
+}
+
+.ficha-ubicacion__fields > .ficha-ubicacion__label:first-of-type {
+  margin-top: 0.75rem;
+}
+
+.ficha-ubicacion__req {
+  color: #d92d20;
+}
+
+.ficha-ubicacion__optional {
+  color: #667085;
+  font-weight: 400;
+}
+
+.ficha-ubicacion__select,
+.ficha-ubicacion__textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ficha-ubicacion__select {
+  height: 40px;
+  padding: 0 12px;
+}
+
+.ficha-ubicacion__textarea {
+  min-height: 72px;
+  padding: 8px 12px;
+  resize: vertical;
+}
+
+.ficha-ubicacion__select:hover,
+.ficha-ubicacion__textarea:hover,
+.ficha-ubicacion__select:focus,
+.ficha-ubicacion__textarea:focus {
+  outline: none;
+  border-color: #646cff;
+  box-shadow: 0 0 0 2px rgba(100, 108, 255, 0.2);
+}
+
+.ficha-ubicacion__textarea::placeholder {
+  color: #9aa0a6;
+}
+
+.ficha-ubicacion__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.ficha-ubicacion__btn {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 6px;
+  border: 1px solid #646cff;
+  background: #646cff;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ficha-ubicacion__btn:hover {
+  filter: brightness(1.08);
+}
+
+.ficha-ubicacion__feedback {
+  font-size: 0.8rem;
+  color: #067647;
+  font-weight: 500;
+}
+
+.ficha-ubicacion--in-modal {
+  margin-top: 0.25rem;
+  margin-bottom: 0;
 }
 
 .ficha-tecnica__imagenes {

@@ -1,6 +1,11 @@
 import { createContext, useContext, useState, useCallback } from 'react'
 import { products as initialProducts } from '../data/products'
 import { resolveBarcode } from '../utils/resolveBarcode'
+import {
+  DEFAULT_UBICACION_FISICA,
+  UBICACION_FISICA_OPTIONS,
+  resolveUbicacionFisicaFromCsv,
+} from '../types/product'
 
 const InventoryContext = createContext(null)
 
@@ -25,6 +30,12 @@ const nextMovementId = (movements) => {
 const createEventId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
   return `evt-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+const normalizeUbicacionFisica = (value) => {
+  const v = String(value ?? '').trim()
+  if (UBICACION_FISICA_OPTIONS.some((o) => o.value === v)) return v
+  return DEFAULT_UBICACION_FISICA
 }
 
 export const InventoryProvider = ({ children }) => {
@@ -132,15 +143,17 @@ export const InventoryProvider = ({ children }) => {
         reversible: false,
       })
 
-      return {
-        id: id++,
-        name: row.name ?? '',
-        sku,
-        codigoInventario: sku,
-        barcode: resolved.barcode,
-        tipoBien: row.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
-        description: row.description ?? '',
-        quantity: Math.max(0, Number(row.quantity) || 0),
+        return {
+          id: id++,
+          name: row.name ?? '',
+          sku,
+          codigoInventario: sku,
+          barcode: resolved.barcode,
+          ubicacionFisica: resolveUbicacionFisicaFromCsv(row.ubicacionFisica),
+          detalleUbicacion: String(row.detalleUbicacion ?? '').trim(),
+          tipoBien: row.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
+          description: row.description ?? '',
+          quantity: Math.max(0, Number(row.quantity) || 0),
         price: Math.max(0, Number(row.price) || 0),
         cost: 0,
         valorLibros: Math.max(0, Number(row.valorLibros) || 0),
@@ -188,6 +201,8 @@ export const InventoryProvider = ({ children }) => {
         sku: skuResolved,
         codigoInventario: skuResolved,
         barcode: resolved.barcode,
+        ubicacionFisica: normalizeUbicacionFisica(product.ubicacionFisica),
+        detalleUbicacion: String(product.detalleUbicacion ?? '').trim(),
         tipoBien: product.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
         description: product.description ?? '',
         quantity: Math.max(0, Number(product.quantity) || 0),
@@ -316,6 +331,8 @@ export const InventoryProvider = ({ children }) => {
         sku,
         codigoInventario: sku,
         barcode: resolved.barcode,
+        ubicacionFisica: normalizeUbicacionFisica(data.ubicacionFisica),
+        detalleUbicacion: String(data.detalleUbicacion ?? '').trim(),
         tipoBien: 'mueble',
         description: String(data.description ?? '').trim(),
         quantity: 1,
