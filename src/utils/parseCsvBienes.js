@@ -130,11 +130,39 @@ export const sanitizeSKU = (raw) => {
   return { value: s, valid: true }
 }
 
+/** Encabezados normalizados que mapean a código / SKU (evita INV-n autogenerado). */
+const isCodigoHeader = (n) => {
+  if (!n) return false
+  if (n === 'codigoinventario' || n === 'codigo' || n === 'sku') return true
+  if (
+    n === 'referencia' ||
+    n === 'ref' ||
+    n === 'codproducto' ||
+    n === 'codigoproducto' ||
+    n === 'codigodeproducto' ||
+    n === 'codinterno' ||
+    n === 'codigointerno' ||
+    n === 'nroparte' ||
+    n === 'numerodeparte' ||
+    n === 'partnumber' ||
+    n === 'clave' ||
+    n === 'claveproducto' ||
+    n === 'clavearticulo' ||
+    n === 'idarticulo' ||
+    n === 'idproducto' ||
+    n === 'codigoitem' ||
+    n === 'itemcode'
+  ) {
+    return true
+  }
+  return false
+}
+
 const mapHeaders = (rawHeaders) => {
   const normalized = rawHeaders.map(normalizeHeader)
   return rawHeaders.map((h, i) => {
     const n = normalized[i]
-    if (n === 'codigoinventario' || n === 'codigo' || n === 'sku') return 'codigoInventario'
+    if (isCodigoHeader(n)) return 'codigoInventario'
     if (n === 'nombre' || n === 'name' || n === 'producto') return 'name'
     if (n === 'tipobien' || n === 'tipo') return 'tipoBien'
     if (n === 'barcode' || n === 'codigodebarras' || n === 'codigobarras') return 'barcode'
@@ -240,6 +268,15 @@ export const parseCsvBienes = (text) => {
       blockingErrors.push({ row: i + 1, message: 'Falta nombre y código del bien.', code: 'ROW_EMPTY' })
       continue
     }
+
+    const autoSku = !codigo ? `INV-${i}` : null
+    if (autoSku) {
+      warnings.push({
+        row: i + 1,
+        message: `Sin código/SKU en columna mapeada: se asignó "${autoSku}". Usa encabezado reconocido (SKU, código, referencia, etc.) y valor en cada fila, o revisa el mapeo en la vista previa.`,
+        code: 'SKU_AUTO_FALLBACK',
+      })
+    }
     const quantityParsed = parseNumberLike(row.quantity)
     const quantity = Number.isFinite(quantityParsed) ? quantityParsed : 0
 
@@ -257,8 +294,8 @@ export const parseCsvBienes = (text) => {
     }
     valid.push({
       sourceRow: i + 1,
-      codigoInventario: codigo || `INV-${i}`,
-      sku: codigo || `INV-${i}`,
+      codigoInventario: codigo || autoSku,
+      sku: codigo || autoSku,
       name,
       tipoBien: row.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
       description: (row.description || '').trim(),

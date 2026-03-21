@@ -1286,6 +1286,43 @@ body {
   margin-bottom: 0;
 }
 
+.ficha-cantidad-stock {
+  margin-top: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.ficha-cantidad-stock__error {
+  font-size: 0.8rem;
+  color: #b91c1c;
+  margin: 0.25rem 0 0;
+}
+
+.ficha-cantidad-stock__input {
+  max-width: 8rem;
+}
+
+.ficha-cantidad-stock__input-barcode {
+  max-width: 100%;
+  width: 100%;
+}
+
+.ficha-cantidad-stock__hint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 0 0 0.5rem;
+  line-height: 1.35;
+}
+
+.ficha-cantidad-stock__hint--field {
+  margin-top: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.ficha-ubicacion__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .ficha-tecnica__imagenes {
   margin-bottom: 1rem;
 }
@@ -1598,6 +1635,89 @@ body {
 .trazabilidad__history-title {
   margin: 0 0 1rem;
   font-size: 1.1rem;
+}
+
+.trazabilidad__filters {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(100, 116, 139, 0.45);
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.trazabilidad__filters-row {
+  margin-bottom: 0.75rem;
+}
+
+.trazabilidad__filters-row:last-of-type {
+  margin-bottom: 0.5rem;
+}
+
+.trazabilidad__filters-row--dates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+}
+
+.trazabilidad__filters-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin-bottom: 0.25rem;
+}
+
+.trazabilidad__filters-search {
+  width: 100%;
+  max-width: 28rem;
+}
+
+.trazabilidad__filters-type {
+  width: 100%;
+  max-width: 22rem;
+}
+
+.trazabilidad__origin {
+  white-space: nowrap;
+  font-size: 0.9em;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.trazabilidad__filters-date {
+  min-width: 10rem;
+}
+
+.trazabilidad__filters-date .trazabilidad__input {
+  width: 100%;
+  min-width: 10rem;
+}
+
+.trazabilidad__filters-actions {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 0.05rem;
+}
+
+.trazabilidad__filters-btn {
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  border-radius: 0.375rem;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: rgba(51, 65, 85, 0.6);
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.trazabilidad__filters-btn:hover {
+  background: rgba(71, 85, 105, 0.75);
+}
+
+.trazabilidad__filters-count {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin: 0;
 }
 
 .trazabilidad__empty {

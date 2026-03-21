@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   TIPO_BIEN,
   ESTADO_VERIFICACION,
@@ -7,10 +7,41 @@ import {
   labelUbicacionFisica,
 } from '../types/product'
 import { useInventory } from '../context/InventoryContext'
+import { useAuth } from '../context/AuthContext'
 import { useProducts } from '../hooks/useProducts'
 import BarcodeDisplay from './BarcodeDisplay'
+import {
+  barcodesMatchForManualAdjust,
+  isBarcodeEligibleForManualAdjust,
+} from '../utils/barcodeManualAdjust'
 
 const PLACEHOLDER_NO_PHOTO = `${import.meta.env.BASE_URL}sin-foto.png`
+
+/** Ventana máxima (primer→último carácter) para considerar entrada tipo lector, no teclado. */
+const BARCODE_SCAN_MAX_TOTAL_MS = 2000
+/** Máx. ms entre dos caracteres consecutivos; por encima suele ser escritura manual. */
+const BARCODE_SCAN_MAX_GAP_MS = 90
+
+const emptyScanBurst = () => ({
+  firstAt: null,
+  lastAt: null,
+  maxGapMs: 0,
+  prevKeyAt: null,
+})
+
+/**
+ * @param {{ current: { firstAt: number | null, lastAt: number | null, maxGapMs: number } }} ref
+ * @param {number} len
+ */
+const isLikelyBarcodeScannerInput = (ref, len) => {
+  if (len < 1) return false
+  const { firstAt, lastAt, maxGapMs } = ref.current
+  if (firstAt == null || lastAt == null) return false
+  const total = lastAt - firstAt
+  if (total > BARCODE_SCAN_MAX_TOTAL_MS) return false
+  if (len >= 2 && maxGapMs > BARCODE_SCAN_MAX_GAP_MS) return false
+  return true
+}
 
 const formatCLP = (value) =>
   new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value ?? 0)
@@ -40,6 +71,7 @@ const readFilesAsDataUrls = (files) => {
 }
 
 const FichaTecnicaModal = ({ product, onClose }) => {
+  const { user } = useAuth()
   const { addProductImages, updateProduct } = useInventory()
   const { products } = useProducts()
   const currentProduct = product ? (products.find((p) => p.id === product.id) ?? product) : null
@@ -47,6 +79,13 @@ const FichaTecnicaModal = ({ product, onClose }) => {
   const [ubicacionEdit, setUbicacionEdit] = useState(DEFAULT_UBICACION_FISICA)
   const [detalleUbicacionEdit, setDetalleUbicacionEdit] = useState('')
   const [ubicacionFeedback, setUbicacionFeedback] = useState('')
+
+  const [cantidadEdit, setCantidadEdit] = useState('')
+  const [cantidadMotivo, setCantidadMotivo] = useState('')
+  const [cantidadBarcodeScan, setCantidadBarcodeScan] = useState('')
+  const [cantidadFeedback, setCantidadFeedback] = useState('')
+  const [cantidadError, setCantidadError] = useState('')
+  const scanBurstRef = useRef(emptyScanBurst())
 
   useEffect(() => {
     if (!currentProduct) return
@@ -57,6 +96,16 @@ const FichaTecnicaModal = ({ product, onClose }) => {
     setDetalleUbicacionEdit(String(currentProduct.detalleUbicacion ?? ''))
     setUbicacionFeedback('')
   }, [currentProduct?.id, currentProduct?.ubicacionFisica, currentProduct?.detalleUbicacion])
+
+  useEffect(() => {
+    if (!currentProduct) return
+    setCantidadEdit(String(Math.max(0, Number(currentProduct.quantity) || 0)))
+    setCantidadMotivo('')
+    setCantidadBarcodeScan('')
+    setCantidadFeedback('')
+    setCantidadError('')
+    scanBurstRef.current = emptyScanBurst()
+  }, [currentProduct?.id, currentProduct?.quantity])
 
   if (!currentProduct) return null
 
@@ -80,6 +129,57 @@ const FichaTecnicaModal = ({ product, onClose }) => {
       detalleUbicacion: detalleUbicacionEdit.trim(),
     })
     setUbicacionFeedback('Ubicación guardada.')
+  }
+
+  const barcodeOkForAdjust = isBarcodeEligibleForManualAdjust(currentProduct.barcode)
+
+  const handleGuardarCantidad = () => {
+    setCantidadError('')
+    setCantidadFeedback('')
+    if (!barcodeOkForAdjust) {
+      setCantidadError(
+        'Este bien no tiene un código de barras válido. Corrija el barcode (p. ej. vía importación) antes de usar Ajuste de Cantidad.'
+      )
+      return
+    }
+    if (!String(cantidadMotivo).trim()) {
+      setCantidadError('El motivo del ajuste es obligatorio.')
+      return
+    }
+    const nextQty = Math.max(0, Number(cantidadEdit) || 0)
+    const prevQty = Math.max(0, Number(currentProduct.quantity) || 0)
+    if (nextQty === prevQty) {
+      setCantidadError('La cantidad es la misma que en el sistema; no se registrará movimiento.')
+      return
+    }
+    const scanRaw = String(cantidadBarcodeScan).trim()
+    if (!scanRaw) {
+      setCantidadError('Enfoque el campo y escanee el código de barras del bien con el lector.')
+      return
+    }
+    if (!isLikelyBarcodeScannerInput(scanBurstRef, scanRaw.length)) {
+      setCantidadError(
+        'El código debe leerse con pistola o lector de barras. No está permitido escribirlo ni pegarlo. Borre el campo y vuelva a escanear.'
+      )
+      return
+    }
+    if (!barcodesMatchForManualAdjust(currentProduct.barcode, scanRaw)) {
+      setCantidadError('El código escaneado no coincide con el barcode de este bien.')
+      return
+    }
+    updateProduct(
+      currentProduct.id,
+      { quantity: nextQty },
+      {
+        actorEmail: user?.email,
+        stockChangeReason: cantidadMotivo.trim(),
+        stockChangeBarcode: scanRaw,
+      }
+    )
+    setCantidadFeedback('Ajuste de Cantidad guardado. Quedó registrado en Trazabilidad y en Historial de Actividad.')
+    setCantidadMotivo('')
+    setCantidadBarcodeScan('')
+    scanBurstRef.current = emptyScanBurst()
   }
 
   return (
@@ -147,10 +247,6 @@ const FichaTecnicaModal = ({ product, onClose }) => {
               <FichaRow label="Tamaño" value={currentProduct.tamano} />
               <FichaRow label="Certificaciones" value={currentProduct.certificaciones} />
               <tr>
-                <th className="ficha-tecnica__th">Cantidad</th>
-                <td className="ficha-tecnica__td">{currentProduct.quantity}</td>
-              </tr>
-              <tr>
                 <th className="ficha-tecnica__th">Valor en libros</th>
                 <td className="ficha-tecnica__td">{formatCLP(currentProduct.valorLibros)}</td>
               </tr>
@@ -162,6 +258,167 @@ const FichaTecnicaModal = ({ product, onClose }) => {
               </tr>
             </tbody>
           </table>
+
+          <div className="ficha-ubicacion ficha-cantidad-stock">
+            <h4 className="ficha-ubicacion__title">Ajuste de Cantidad</h4>
+            <p className="ficha-ubicacion__summary">
+              <span className="ficha-ubicacion__summary-label">Cantidad en sistema:</span>{' '}
+              {Math.max(0, Number(currentProduct.quantity) || 0)} uds.
+            </p>
+            {!barcodeOkForAdjust ? (
+              <p className="ficha-cantidad-stock__error" role="alert">
+                No se puede usar Ajuste de Cantidad: el bien no tiene un código de barras válido en el sistema. Actualice
+                el inventario (p. ej. importación CSV) para asignar un barcode antes de ajustar stock desde aquí.
+              </p>
+            ) : (
+              <p className="ficha-cantidad-stock__hint">
+                Indique motivo y confirme con el <strong>lector de barras</strong> (pistola). No pegue ni escriba el código:
+                el sistema solo acepta lectura escaneada.
+              </p>
+            )}
+            <div className="ficha-ubicacion__fields">
+              <label className="ficha-ubicacion__label" htmlFor="ficha-cantidad-input">
+                Nueva cantidad <span className="ficha-ubicacion__req">*</span>
+              </label>
+              <input
+                id="ficha-cantidad-input"
+                type="number"
+                min={0}
+                step={1}
+                className="ficha-ubicacion__select ficha-cantidad-stock__input"
+                value={cantidadEdit}
+                disabled={!barcodeOkForAdjust}
+                onChange={(e) => {
+                  setCantidadEdit(e.target.value)
+                  setCantidadBarcodeScan('')
+                  scanBurstRef.current = emptyScanBurst()
+                  setCantidadError('')
+                  setCantidadFeedback('')
+                }}
+                aria-required
+              />
+
+              <label className="ficha-ubicacion__label" htmlFor="ficha-cantidad-motivo">
+                Motivo del ajuste <span className="ficha-ubicacion__req">*</span>
+              </label>
+              <textarea
+                id="ficha-cantidad-motivo"
+                className="ficha-ubicacion__textarea"
+                value={cantidadMotivo}
+                disabled={!barcodeOkForAdjust}
+                onChange={(e) => {
+                  setCantidadMotivo(e.target.value)
+                  setCantidadError('')
+                  setCantidadFeedback('')
+                }}
+                placeholder="Ej. Corrección inventario físico, conteo cíclico, error de carga…"
+                rows={2}
+                required
+              />
+
+              <label className="ficha-ubicacion__label" htmlFor="ficha-cantidad-barcode-scan">
+                Confirmar con código de barras (escaneo) <span className="ficha-ubicacion__req">*</span>
+              </label>
+              <input
+                id="ficha-cantidad-barcode-scan"
+                type="text"
+                inputMode="none"
+                autoComplete="off"
+                spellCheck={false}
+                className="ficha-ubicacion__select ficha-cantidad-stock__input-barcode"
+                value={cantidadBarcodeScan}
+                disabled={!barcodeOkForAdjust}
+                onBeforeInput={(e) => {
+                  if (e.inputType === 'insertFromPaste' || e.inputType === 'insertFromDrop') {
+                    e.preventDefault()
+                    setCantidadError('No pegue ni arrastre el código. Use el lector de barras.')
+                  }
+                }}
+                onPaste={(e) => {
+                  e.preventDefault()
+                  setCantidadError('No está permitido pegar el código. Escaneéelo con el lector.')
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  setCantidadError('No arrastre texto al campo. Use el lector de barras.')
+                }}
+                onChange={(e) => {
+                  const v = e.target.value
+                  const prev = cantidadBarcodeScan
+                  const now = Date.now()
+
+                  if (v.length < prev.length) {
+                    setCantidadBarcodeScan('')
+                    scanBurstRef.current = emptyScanBurst()
+                    setCantidadError('Si corrige el código, debe volver a escanearlo por completo con el lector.')
+                    setCantidadFeedback('')
+                    return
+                  }
+
+                  const added = v.length - prev.length
+                  if (added > 1) {
+                    setCantidadBarcodeScan('')
+                    scanBurstRef.current = emptyScanBurst()
+                    setCantidadError('No pegue el código. Enfoque el campo y escanéelo de una sola vez con el lector.')
+                    setCantidadFeedback('')
+                    return
+                  }
+
+                  if (v === '') {
+                    scanBurstRef.current = emptyScanBurst()
+                  } else if (v.length === 1) {
+                    scanBurstRef.current = {
+                      firstAt: now,
+                      lastAt: now,
+                      maxGapMs: 0,
+                      prevKeyAt: now,
+                    }
+                  } else {
+                    const r = scanBurstRef.current
+                    const prevKey = r.prevKeyAt
+                    if (prevKey != null) {
+                      r.maxGapMs = Math.max(r.maxGapMs, now - prevKey)
+                    }
+                    r.prevKeyAt = now
+                    r.lastAt = now
+                    if (r.firstAt == null) r.firstAt = now
+                  }
+
+                  setCantidadBarcodeScan(v)
+                  setCantidadError('')
+                  setCantidadFeedback('')
+                }}
+                placeholder="Enfocar aquí y escanear con el lector"
+                aria-required
+                aria-describedby="ficha-cantidad-barcode-scan-hint"
+              />
+              <p id="ficha-cantidad-barcode-scan-hint" className="ficha-cantidad-stock__hint ficha-cantidad-stock__hint--field">
+                Solo lectura por pistola/lector USB o Bluetooth; sin teclado ni pegar.
+              </p>
+
+              {cantidadError ? (
+                <p className="ficha-cantidad-stock__error" role="alert">
+                  {cantidadError}
+                </p>
+              ) : null}
+
+              <div className="ficha-ubicacion__actions">
+                <button
+                  type="button"
+                  className="ficha-ubicacion__btn"
+                  onClick={handleGuardarCantidad}
+                  disabled={!barcodeOkForAdjust}
+                >
+                  Confirmar ajuste
+                </button>
+                {cantidadFeedback ? (
+                  <span className="ficha-ubicacion__feedback" role="status">
+                    {cantidadFeedback}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </div>
 
           <div className="ficha-ubicacion">
             <h4 className="ficha-ubicacion__title">Ubicación Física</h4>

@@ -1,6 +1,9 @@
 /**
  * Persistencia local (IndexedDB) — spike para sobrevivir recargas sin backend.
  * Un solo registro clave-valor con snapshot de inventario.
+ *
+ * `movements` puede incluir campos opcionales (p. ej. quantityBefore, correlationId, source)
+ * sin cambiar la versión del DB; el snapshot sigue siendo un único objeto JSON.
  */
 
 const DB_NAME = 'proyecto-inventario-v1'

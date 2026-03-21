@@ -8,6 +8,17 @@ import {
   ESTADO_VERIFICACION,
   resolveUbicacionFisicaFromCsv,
 } from '../types/product'
+import {
+  MOVEMENT_SOURCE_CSV_IMPORT,
+  MOVEMENT_SOURCE_MANUAL_TRAZABILIDAD,
+  MOVEMENT_SOURCE_MANUAL_SCAN_UI,
+  MOVEMENT_TYPE_CSV_IMPORT,
+  MOVEMENT_TYPE_ADJUST_QUANTITY,
+} from '../types/movement'
+import {
+  barcodesMatchForManualAdjust,
+  isBarcodeEligibleForManualAdjust,
+} from '../utils/barcodeManualAdjust'
 
 const labelEstadoVerificacion = (code) => ESTADO_VERIFICACION[code] ?? String(code ?? '—')
 
@@ -168,6 +179,9 @@ export const InventoryProvider = ({ children }) => {
         appliedRowCount: rows.length,
       }
 
+      /** Movimientos kardex del merge (se rellenan dentro del updater de `setProducts`). */
+      let importMovementsDraft = []
+
       const pushBarcodeAudit = (sku, resolved) => {
         if (!logBarcodeRowAudit) return
         auditToLog.push({
@@ -191,7 +205,30 @@ export const InventoryProvider = ({ children }) => {
         })
       }
 
+      if (overwrite) {
+        let clearedCount = 0
+        setMovements((prev) => {
+          clearedCount = prev.length
+          return []
+        })
+        logAuditEvent({
+          usuario: actor,
+          accion: 'Reinicio de trazabilidad operativa (kardex)',
+          actionType: 'MOVEMENT_LEDGER_RESET',
+          correlationId,
+          reversible: false,
+          detalle: `Inventario inicial por CSV: se eliminaron ${clearedCount} movimiento(s) previos del registro operativo para evitar referencias obsoletas tras la sobrescritura.${fileName ? ` Archivo: ${fileName}.` : ''}`,
+          metadata: {
+            movementsCleared: clearedCount,
+            fileName,
+            overwrite: true,
+            correlationId,
+          },
+        })
+      }
+
       setProducts((prevProducts) => {
+        importMovementsDraft = []
         if (overwrite) {
           const usedBarcodes = new Set()
           let id = 1
@@ -260,8 +297,10 @@ export const InventoryProvider = ({ children }) => {
             if (resolved.barcode) usedBarcodes.add(resolved.barcode)
             pushBarcodeAudit(sku, resolved)
 
+            const newId = id++
+            const afterQty = Math.max(0, Number(row.quantity) || 0)
             next.push({
-              id: id++,
+              id: newId,
               name: row.name ?? '',
               sku,
               codigoInventario: sku,
@@ -270,7 +309,7 @@ export const InventoryProvider = ({ children }) => {
               detalleUbicacion: String(row.detalleUbicacion ?? '').trim(),
               tipoBien: row.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
               description: row.description ?? '',
-              quantity: Math.max(0, Number(row.quantity) || 0),
+              quantity: afterQty,
               price: Math.max(0, Number(row.price) || 0),
               cost: 0,
               valorLibros: Math.max(0, Number(row.valorLibros) || 0),
@@ -289,6 +328,23 @@ export const InventoryProvider = ({ children }) => {
               version: 1,
             })
             created += 1
+            if (afterQty !== 0) {
+              importMovementsDraft.push({
+                productId: newId,
+                productName: row.name ?? '',
+                codigoInventario: sku,
+                type: MOVEMENT_TYPE_CSV_IMPORT,
+                quantityDelta: afterQty,
+                quantityBefore: 0,
+                quantityAfter: afterQty,
+                responsible: actor,
+                reason: `Importación CSV (actualización)${fileName ? ` · ${fileName}` : ''}`,
+                retail: null,
+                date: new Date().toISOString(),
+                correlationId,
+                source: MOVEMENT_SOURCE_CSV_IMPORT,
+              })
+            }
           } else {
             const p = next[idx]
             const forResolve = new Set(usedBarcodes)
@@ -307,6 +363,9 @@ export const InventoryProvider = ({ children }) => {
 
             const rowImages = Array.isArray(row.imagenesReferenciales) ? row.imagenesReferenciales : []
 
+            const beforeQty = Math.max(0, Number(p.quantity) || 0)
+            const afterQty = Math.max(0, Number(row.quantity) || 0)
+
             next[idx] = {
               ...p,
               name: row.name ?? p.name,
@@ -320,7 +379,7 @@ export const InventoryProvider = ({ children }) => {
                   : p.detalleUbicacion,
               tipoBien: row.tipoBien === 'inmueble' ? 'inmueble' : 'mueble',
               description: row.description ?? p.description,
-              quantity: Math.max(0, Number(row.quantity) || 0),
+              quantity: afterQty,
               price: Math.max(0, Number(row.price) || 0),
               valorLibros: Math.max(0, Number(row.valorLibros) || 0),
               estadoVerificacion: nextEstado,
@@ -336,6 +395,23 @@ export const InventoryProvider = ({ children }) => {
               version: (p.version ?? 1) + 1,
             }
             updated += 1
+            if (beforeQty !== afterQty) {
+              importMovementsDraft.push({
+                productId: p.id,
+                productName: next[idx].name,
+                codigoInventario: sku,
+                type: MOVEMENT_TYPE_CSV_IMPORT,
+                quantityDelta: afterQty - beforeQty,
+                quantityBefore: beforeQty,
+                quantityAfter: afterQty,
+                responsible: actor,
+                reason: `Importación CSV (actualización)${fileName ? ` · ${fileName}` : ''}`,
+                retail: null,
+                date: new Date().toISOString(),
+                correlationId,
+                source: MOVEMENT_SOURCE_CSV_IMPORT,
+              })
+            }
           }
         }
 
@@ -348,6 +424,14 @@ export const InventoryProvider = ({ children }) => {
         }
         return next
       })
+
+      if (!overwrite && importMovementsDraft.length > 0) {
+        setMovements((m) => {
+          let nid = nextMovementId(m)
+          const stamped = importMovementsDraft.map((draft) => ({ ...draft, id: nid++ }))
+          return [...m, ...stamped]
+        })
+      }
 
       const modeLabel = overwrite ? 'Inventario inicial (sobrescritura)' : 'Actualización masiva (merge por SKU)'
       const detailParts = overwrite
@@ -451,16 +535,40 @@ export const InventoryProvider = ({ children }) => {
   }, [])
 
   /**
-   * Actualiza un bien existente (p. ej. estado de verificación, ubicación).
+   * Actualiza un bien existente (p. ej. estado de verificación, ubicación, cantidad).
+   * Si cambia `quantity` y before ≠ after, añade movimiento kardex (`ajuste_cantidad`, source `manual_scan_ui`) con verificación por barcode.
+   *
    * @param {number|string} productId
    * @param {Record<string, unknown>} partial
-   * @param {{ actorEmail?: string }} [options]
+   * @param {{ actorEmail?: string, stockChangeReason?: string, stockChangeBarcode?: string }} [options] - Si cambia el stock: motivo + escaneo que coincida con `product.barcode` (normalizado).
    */
   const updateProduct = useCallback(
     (productId, partial, options = {}) => {
       if (!productId || !partial || typeof partial !== 'object') return
       const actor = String(options.actorEmail ?? '').trim() || 'Sistema'
+      const stockReasonRaw = String(options.stockChangeReason ?? '').trim()
+      const stockChangeBarcodeRaw = String(options.stockChangeBarcode ?? '').trim()
+      /** ISO único para movimiento `date` y `barcodeVerifiedAt` cuando hay ajuste de cantidad válido. */
+      let stockAdjustVerifiedAtIso = null
+      if (
+        Object.prototype.hasOwnProperty.call(partial, 'quantity') &&
+        partial.quantity !== undefined
+      ) {
+        const target = products.find((p) => p.id === productId)
+        if (target) {
+          const beforeCheck = Math.max(0, Number(target.quantity) || 0)
+          const afterCheck = Math.max(0, Number(partial.quantity) || 0)
+          if (beforeCheck !== afterCheck) {
+            if (!stockReasonRaw) return
+            if (!isBarcodeEligibleForManualAdjust(target.barcode)) return
+            if (!barcodesMatchForManualAdjust(target.barcode, stockChangeBarcodeRaw)) return
+            stockAdjustVerifiedAtIso = new Date().toISOString()
+          }
+        }
+      }
       let verificationAudit = null
+      /** @type {null | Record<string, unknown>} */
+      let quantityMovementDraft = null
 
       setProducts((prev) =>
         prev.map((p) => {
@@ -468,6 +576,30 @@ export const InventoryProvider = ({ children }) => {
           const updates = { ...partial }
           if ('quantity' in updates && updates.quantity !== undefined) {
             updates.quantity = Math.max(0, Number(updates.quantity) || 0)
+            const beforeQty = Math.max(0, Number(p.quantity) || 0)
+            const afterQty = updates.quantity
+            if (beforeQty !== afterQty && stockReasonRaw && stockAdjustVerifiedAtIso) {
+              const versionBefore = p.version ?? 1
+              quantityMovementDraft = {
+                productId: p.id,
+                productName: p.name,
+                codigoInventario: String(p.codigoInventario ?? p.sku ?? ''),
+                type: MOVEMENT_TYPE_ADJUST_QUANTITY,
+                quantityDelta: afterQty - beforeQty,
+                quantityBefore: beforeQty,
+                quantityAfter: afterQty,
+                versionBefore,
+                versionAfter: versionBefore + 1,
+                responsible: actor,
+                reason: stockReasonRaw,
+                retail: null,
+                date: stockAdjustVerifiedAtIso,
+                source: MOVEMENT_SOURCE_MANUAL_SCAN_UI,
+                barcodeValidated: true,
+                verificationMethod: 'barcode_scan',
+                barcodeVerifiedAt: stockAdjustVerifiedAtIso,
+              }
+            }
           }
           if ('estadoVerificacion' in updates) {
             const oldE = p.estadoVerificacion ?? 'teorico'
@@ -496,11 +628,43 @@ export const InventoryProvider = ({ children }) => {
         })
       )
 
+      if (quantityMovementDraft) {
+        const d = quantityMovementDraft
+        const sku = d.codigoInventario || '—'
+        setMovements((m) => {
+          const nid = nextMovementId(m)
+          const { versionBefore: _vb, versionAfter: _va, ...movementFields } = d
+          return [...m, { id: nid, ...movementFields }]
+        })
+        logAuditEvent({
+          usuario: actor,
+          accion: 'Ajuste de Cantidad (ficha)',
+          actionType: 'STOCK_ADJUST',
+          targetSku: sku,
+          previousValue: d.quantityBefore,
+          newValue: d.quantityAfter,
+          detalle: `"${d.productName}" (${sku}): ${d.quantityBefore} → ${d.quantityAfter} uds. Motivo: ${d.reason}. Verificación: escaneo de barcode.`,
+          productoId: d.productId,
+          sku,
+          estadoAnterior: { quantity: d.quantityBefore, version: d.versionBefore },
+          estadoNuevo: { quantity: d.quantityAfter, version: d.versionAfter },
+          reversible: true,
+          metadata: {
+            kardexType: MOVEMENT_TYPE_ADJUST_QUANTITY,
+            kardexSource: MOVEMENT_SOURCE_MANUAL_SCAN_UI,
+            reason: d.reason,
+            barcodeValidated: true,
+            verificationMethod: 'barcode_scan',
+            barcodeVerifiedAt: d.barcodeVerifiedAt,
+          },
+        })
+      }
+
       if (verificationAudit) {
         logAuditEvent(verificationAudit)
       }
     },
-    [logAuditEvent]
+    [logAuditEvent, products]
   )
 
   const addProductImages = useCallback((productId, newImageUrls) => {
@@ -546,11 +710,13 @@ export const InventoryProvider = ({ children }) => {
         codigoInventario: product.codigoInventario ?? product.sku,
         type,
         quantityDelta: deltaNum,
+        quantityBefore: currentQty,
         quantityAfter: newQty,
         responsible: responsibleStr,
         reason: reasonStr,
         retail: retailStr,
         date: resolvedDate.toISOString(),
+        source: MOVEMENT_SOURCE_MANUAL_TRAZABILIDAD,
       }
       setMovements((m) => [...m, { id: nextMovementId(m), ...movementPayload }])
       setProducts((prev) =>
@@ -618,10 +784,12 @@ export const InventoryProvider = ({ children }) => {
         codigoInventario: sku,
         type: data.type || 'devolucion_cliente_retail',
         quantityDelta: 1,
+        quantityBefore: 0,
         quantityAfter: 1,
         responsible: responsibleStr,
         reason: reasonStr,
         date: resolvedDate.toISOString(),
+        source: MOVEMENT_SOURCE_MANUAL_TRAZABILIDAD,
       }
       setProducts((prev) => [...prev, newProduct])
       setMovements((m) => [...m, { id: nextMovementId(m), ...movementPayload }])

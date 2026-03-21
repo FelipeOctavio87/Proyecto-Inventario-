@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useInventory } from '../context/InventoryContext'
 import { useAuth } from '../context/AuthContext'
 import {
   MOVEMENT_CATEGORIES,
   MOVEMENT_TYPE_LABELS,
+  getMovementOriginLabel,
   getMovementSign,
   isReasonRequired,
 } from '../types/movement'
 import AjustePorEscaneo from '../components/AjustePorEscaneo'
+import { normalizeBarcodeForComparison } from '../utils/barcodeManualAdjust'
 
 const CHILE_TZ = 'America/Santiago'
 
@@ -27,6 +29,17 @@ const getChileNowForInput = () => {
   return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
 }
 
+/** Stock antes → después; movimientos viejos sin `quantityBefore` usan derivación. */
+const formatStockBeforeAfter = (m) => {
+  const after = Number(m.quantityAfter) || 0
+  const delta = Number(m.quantityDelta) || 0
+  const before =
+    m.quantityBefore != null && m.quantityBefore !== ''
+      ? Number(m.quantityBefore) || 0
+      : after - delta
+  return `${before} → ${after}`
+}
+
 const formatDate = (iso) => {
   try {
     const d = new Date(iso)
@@ -38,6 +51,45 @@ const formatDate = (iso) => {
   } catch {
     return iso
   }
+}
+
+/**
+ * Fecha calendario YYYY-MM-DD en zona Chile para un instante ISO.
+ * Devuelve null si la fecha es inválida (evita RangeError en formatToParts y pantalla en blanco).
+ */
+const toChileYmd = (dateInput) => {
+  const d = dateInput instanceof Date ? dateInput : new Date(dateInput)
+  if (Number.isNaN(d.getTime())) return null
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: CHILE_TZ,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(d)
+    const y = parts.find((p) => p.type === 'year')?.value
+    const mo = parts.find((p) => p.type === 'month')?.value
+    const day = parts.find((p) => p.type === 'day')?.value
+    if (!y || !mo || !day) return null
+    return `${y}-${mo}-${day}`
+  } catch {
+    return null
+  }
+}
+
+/** Suma días a un YYYY-MM-DD (calendario gregoriano) y devuelve el YMD en Chile de ese instante. */
+const addDaysToYmd = (ymd, deltaDays) => {
+  if (!ymd || typeof ymd !== 'string') return null
+  const [y, mo, da] = ymd.split('-').map(Number)
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(da)) return null
+  const t = new Date(Date.UTC(y, mo - 1, da + deltaDays, 12, 0, 0))
+  return toChileYmd(t)
+}
+
+const getDefaultLast7DaysRange = () => {
+  const hasta = toChileYmd(new Date()) ?? new Date().toISOString().slice(0, 10)
+  const desde = addDaysToYmd(hasta, -6) ?? hasta
+  return { desde, hasta }
 }
 
 /** Primer tipo por defecto (Recepción de Proveedor) */
@@ -93,6 +145,14 @@ const TrazabilidadPage = () => {
   const [retail, setRetail] = useState('')
   const [date, setDate] = useState(() => getChileNowForInput())
   const [validationError, setValidationError] = useState('')
+
+  const [movementSearch, setMovementSearch] = useState('')
+  const [dateDesde, setDateDesde] = useState(() => getDefaultLast7DaysRange().desde)
+  const [dateHasta, setDateHasta] = useState(() => getDefaultLast7DaysRange().hasta)
+  const [dateFilterAll, setDateFilterAll] = useState(false)
+  const [movementTypeFilter, setMovementTypeFilter] = useState('')
+
+  const safeMovements = Array.isArray(movements) ? movements : []
 
   const responsibleDisplay = user?.email ? `Usuario Autenticado: ${user.email}` : 'Usuario Autenticado: Felipe Rebolledo'
   const reasonRequired = isReasonRequired(type)
@@ -218,7 +278,85 @@ const TrazabilidadPage = () => {
   }
 
   const quantityMessage = getQuantityMessage(type, quantityInput)
-  const sortedMovements = [...movements].sort((a, b) => new Date(b.date) - new Date(a.date))
+
+  const productById = useMemo(() => {
+    const map = new Map()
+    products.forEach((p) => map.set(p.id, p))
+    return map
+  }, [products])
+
+  const movementTypesUnknownInCatalog = useMemo(() => {
+    const known = new Set(Object.keys(MOVEMENT_TYPE_LABELS))
+    const found = new Set()
+    safeMovements.forEach((m) => {
+      const t = m?.type
+      if (t != null && String(t) !== '' && !known.has(String(t))) found.add(String(t))
+    })
+    return [...found].sort((a, b) => a.localeCompare(b, 'es'))
+  }, [safeMovements])
+
+  const movementTypeOptionsSorted = useMemo(
+    () =>
+      Object.entries(MOVEMENT_TYPE_LABELS).sort((a, b) =>
+        a[1].localeCompare(b[1], 'es', { sensitivity: 'base' })
+      ),
+    []
+  )
+
+  const filteredMovements = useMemo(() => {
+    let list = safeMovements
+
+    if (!dateFilterAll && dateDesde && dateHasta) {
+      const desdeEff = dateDesde <= dateHasta ? dateDesde : dateHasta
+      const hastaEff = dateDesde <= dateHasta ? dateHasta : dateDesde
+      list = list.filter((m) => {
+        const ymd = toChileYmd(m.date)
+        if (ymd == null) return true
+        return ymd >= desdeEff && ymd <= hastaEff
+      })
+    }
+
+    const qRaw = movementSearch.trim()
+    if (qRaw) {
+      const qLower = qRaw.toLowerCase()
+      const qBarcode = normalizeBarcodeForComparison(qRaw)
+      list = list.filter((m) => {
+        const codigo = String(m.codigoInventario ?? '').toLowerCase()
+        const nombre = String(m.productName ?? '').toLowerCase()
+        if (codigo.includes(qLower) || nombre.includes(qLower)) return true
+        const prod = m.productId != null ? productById.get(m.productId) : null
+        if (!prod?.barcode || !qBarcode) return false
+        const bNorm = normalizeBarcodeForComparison(prod.barcode)
+        return bNorm.includes(qBarcode)
+      })
+    }
+
+    if (movementTypeFilter) {
+      list = list.filter((m) => String(m.type ?? '') === movementTypeFilter)
+    }
+
+    return [...list].sort((a, b) => {
+      const ta = new Date(a.date).getTime()
+      const tb = new Date(b.date).getTime()
+      const aOk = Number.isFinite(ta)
+      const bOk = Number.isFinite(tb)
+      if (!aOk && !bOk) return 0
+      if (!aOk) return 1
+      if (!bOk) return -1
+      return tb - ta
+    })
+  }, [
+    safeMovements,
+    dateFilterAll,
+    dateDesde,
+    dateHasta,
+    movementSearch,
+    movementTypeFilter,
+    productById,
+  ])
+
+  const totalMovements = safeMovements.length
+  const shownCount = filteredMovements.length
 
   return (
     <div className="page trazabilidad-page">
@@ -405,8 +543,118 @@ const TrazabilidadPage = () => {
 
         <div className="trazabilidad__history mt-8">
           <h3 className="trazabilidad__history-title">Historial de movimientos</h3>
-          {sortedMovements.length === 0 ? (
-            <p className="trazabilidad__empty">Aún no hay movimientos. Los cambios desde CSV no se registran aquí.</p>
+
+          <div className="trazabilidad__filters" aria-label="Filtros del historial">
+            <div className="trazabilidad__filters-row">
+              <label className="trazabilidad__filters-label" htmlFor="traz-busqueda">
+                Buscar
+              </label>
+              <input
+                id="traz-busqueda"
+                type="search"
+                className="trazabilidad__filters-search trazabilidad__input"
+                placeholder="Código, nombre o barcode…"
+                value={movementSearch}
+                onChange={(e) => setMovementSearch(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <div className="trazabilidad__filters-row">
+              <label className="trazabilidad__filters-label" htmlFor="traz-tipo">
+                Tipo de movimiento
+              </label>
+              <select
+                id="traz-tipo"
+                className="trazabilidad__filters-type trazabilidad__input"
+                value={movementTypeFilter}
+                onChange={(e) => setMovementTypeFilter(e.target.value)}
+              >
+                <option value="">Todos los tipos</option>
+                {movementTypeOptionsSorted.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+                {movementTypesUnknownInCatalog.map((t) => (
+                  <option key={`unknown-${t}`} value={t}>
+                    {t} (sin catálogo)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="trazabilidad__filters-row trazabilidad__filters-row--dates">
+              <div className="trazabilidad__filters-date">
+                <label className="trazabilidad__filters-label" htmlFor="traz-desde">
+                  Desde
+                </label>
+                <input
+                  id="traz-desde"
+                  type="date"
+                  className="trazabilidad__input"
+                  value={dateDesde}
+                  disabled={dateFilterAll}
+                  onChange={(e) => {
+                    setDateDesde(e.target.value)
+                    setDateFilterAll(false)
+                  }}
+                />
+              </div>
+              <div className="trazabilidad__filters-date">
+                <label className="trazabilidad__filters-label" htmlFor="traz-hasta">
+                  Hasta
+                </label>
+                <input
+                  id="traz-hasta"
+                  type="date"
+                  className="trazabilidad__input"
+                  value={dateHasta}
+                  disabled={dateFilterAll}
+                  onChange={(e) => {
+                    setDateHasta(e.target.value)
+                    setDateFilterAll(false)
+                  }}
+                />
+              </div>
+              <div className="trazabilidad__filters-actions">
+                {dateFilterAll ? (
+                  <button
+                    type="button"
+                    className="trazabilidad__filters-btn"
+                    onClick={() => {
+                      const r = getDefaultLast7DaysRange()
+                      setDateDesde(r.desde)
+                      setDateHasta(r.hasta)
+                      setDateFilterAll(false)
+                    }}
+                  >
+                    Últimos 7 días
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="trazabilidad__filters-btn"
+                    onClick={() => setDateFilterAll(true)}
+                  >
+                    Ver todo
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="trazabilidad__filters-count" role="status">
+              Mostrando {shownCount} de {totalMovements} movimientos
+              {dateFilterAll ? ' (sin filtro de fechas)' : ''}
+            </p>
+          </div>
+
+          {totalMovements === 0 ? (
+            <p className="trazabilidad__empty">
+              Aún no hay movimientos. Regístralos aquí o vía importación CSV en modo actualización masiva.
+            </p>
+          ) : shownCount === 0 ? (
+            <p className="trazabilidad__empty">
+              No hay movimientos que coincidan con la búsqueda, el rango de fechas o el tipo seleccionado. Ajusta los
+              filtros o usa «Ver todo».
+            </p>
           ) : (
             <div className="trazabilidad__table-wrap">
               <table className="trazabilidad__table">
@@ -415,26 +663,28 @@ const TrazabilidadPage = () => {
                     <th>Fecha</th>
                     <th>Producto / Código</th>
                     <th>Tipo</th>
+                    <th>Origen</th>
                     <th>Retail</th>
                     <th>Variación</th>
-                    <th>Stock después</th>
+                    <th>Stock (antes → después)</th>
                     <th>Responsable</th>
                     <th>Motivo</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedMovements.map((m) => (
+                  {filteredMovements.map((m) => (
                     <tr key={m.id}>
                       <td>{formatDate(m.date)}</td>
                       <td>
                         {m.productName} <span className="trazabilidad__codigo">({m.codigoInventario})</span>
                       </td>
                       <td>{MOVEMENT_TYPE_LABELS[m.type] ?? m.type}</td>
+                      <td className="trazabilidad__origin">{getMovementOriginLabel(m)}</td>
                       <td>{m.retail ?? '—'}</td>
                       <td className={m.quantityDelta > 0 ? 'trazabilidad__delta--pos' : 'trazabilidad__delta--neg'}>
                         {m.quantityDelta > 0 ? '+' : ''}{m.quantityDelta}
                       </td>
-                      <td>{m.quantityAfter}</td>
+                      <td className="trazabilidad__stock-range">{formatStockBeforeAfter(m)}</td>
                       <td>{m.responsible}</td>
                       <td>{m.reason}</td>
                     </tr>

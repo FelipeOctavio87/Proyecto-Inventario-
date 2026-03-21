@@ -1,4 +1,4 @@
-# Requisitos del proyecto – Municipalidad de Algarrobo / SLEP Litoral
+# Requisitos del proyecto 
 
 Sistema de inventario alineado al llamado de la **Municipalidad de Algarrobo** (Traspaso SLEP Litoral, Ley N° 24.040).
 

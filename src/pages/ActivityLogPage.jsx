@@ -9,6 +9,7 @@ import {
   FileInput,
   ClipboardCheck,
   Ban,
+  History,
 } from 'lucide-react'
 import { useInventory } from '../context/InventoryContext'
 
@@ -61,6 +62,9 @@ const ActivityLogPage = () => {
     }
     if (evt.actionType === 'VERIFICATION_STATUS_UPDATE') {
       return <ClipboardCheck className="w-4 h-4 text-cyan-300" />
+    }
+    if (evt.actionType === 'MOVEMENT_LEDGER_RESET') {
+      return <History className="w-4 h-4 text-rose-300" />
     }
     if (evt.actionType === 'INVENTORY_PURGE') {
       return <AlertTriangle className="w-4 h-4 text-orange-300" />
@@ -161,6 +165,7 @@ const ActivityLogPage = () => {
                     <div className="flex flex-col gap-1">
                       {evt.actionType !== 'IMPORT_COMMIT' &&
                         evt.actionType !== 'IMPORT_REJECTED' &&
+                        evt.actionType !== 'MOVEMENT_LEDGER_RESET' &&
                         evt.actionType !== 'INVENTORY_PURGE' &&
                         evt.actionType !== 'BARCODE_IMPORT' &&
                         evt.actionType !== 'VERIFICATION_STATUS_UPDATE' && (

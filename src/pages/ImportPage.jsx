@@ -319,7 +319,12 @@ const ImportPage = () => {
                 </table>
               </div>
               <p className="import__format-note">
-                <strong>Campos que reconoce la app:</strong> codigoInventario (o SKU), name (o Producto/Nombre), quantity (o Unidades), valorLibros (o Costo unitario), tipoBien, description, barcode, ubicacionFisica (o bodega/ubicación), detalleUbicacion, estadoVerificacion, price.
+                <strong>Campos que reconoce la app:</strong> código/SKU — columnas como{' '}
+                <em>codigoInventario, SKU, código, referencia, ref, id producto, clave, nº parte</em>, etc.; nombre —{' '}
+                <em>name, Producto, nombre</em>; quantity (o Unidades); valorLibros; tipoBien; description; barcode;
+                ubicacionFisica; detalleUbicacion; estadoVerificacion; price. Si no detecta columna de código, asigna{' '}
+                <strong>INV-</strong>
+                + número de fila (revisa el mapeo ✓/✗ arriba).
               </p>
             </div>
 

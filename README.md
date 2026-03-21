@@ -43,6 +43,8 @@ Abre [http://localhost:3000](http://localhost:3000).
 - [Requisitos](docs/REQUIREMENTS.md)
 - [Guía de desarrollo backend](docs/BACKEND_GUIDELINE.md)
 - [Autenticación y permisos (MVP cliente)](docs/SECURITY_AUTH.md)
+- [Checklist manual MVP kardex (import CSV)](docs/KARDEX_MVP_MANUAL_TESTS.md)
+- [Checklist Fase 2 kardex (ajuste manual ficha)](docs/KARDEX_FASE2_MANUAL_TESTS.md)
 
 ---
 
