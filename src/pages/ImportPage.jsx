@@ -241,7 +241,7 @@ const ImportPage = () => {
             </div>
           </div>
           {can(PERMISSIONS.BULK_REFERENCE_IMAGES) && (
-            <div className="import__block mt-6">
+            <div className="import__block import__block--bienes-panel mt-6">
               <h3 className="import__block-title">Gestor de imágenes</h3>
               <GestorImagenes />
             </div>
@@ -268,14 +268,14 @@ const ImportPage = () => {
         </div>
 
         <div className="import__actions">
-          <div className="import__block">
+          <div className="import__block import__block--bienes-panel">
             <h3 className="import__block-title">1. Subir archivo CSV</h3>
             <input
               ref={fileInputRef}
               type="file"
               accept=".csv,text/csv"
               onChange={handleFileChange}
-              className="import__file"
+              className="import__file import__file--bienes"
             />
             {file && (
               <p className="import__file-name" role="status">
@@ -509,7 +509,14 @@ const ImportPage = () => {
           </>
         )}
 
-        <div className="import__block import__block--vaciar">
+        {can(PERMISSIONS.BULK_REFERENCE_IMAGES) && (
+          <div className="import__block import__block--bienes-panel mt-6">
+            <h3 className="import__block-title">Gestor de imágenes</h3>
+            <GestorImagenes />
+          </div>
+        )}
+
+        <div className="import__block import__block--vaciar mt-6">
           <h3 className="import__block-title">Vaciar inventario</h3>
           <p className="import__vaciar-desc">
             Restablece bienes al estado inicial de demostración y elimina movimientos en memoria. El{' '}
@@ -538,7 +545,7 @@ const ImportPage = () => {
               </p>
               <input
                 type="text"
-                className="import__purge-input"
+                className="product-list__filter-input import__purge-input"
                 value={vaciarPhrase}
                 onChange={(e) => setVaciarPhrase(e.target.value)}
                 placeholder={CONFIRM_PURGE_TEXT}
@@ -565,13 +572,6 @@ const ImportPage = () => {
                 </button>
               </div>
             </div>
-          </div>
-        )}
-
-        {can(PERMISSIONS.BULK_REFERENCE_IMAGES) && (
-          <div className="import__block mt-6">
-            <h3 className="import__block-title">Gestor de imágenes</h3>
-            <GestorImagenes />
           </div>
         )}
 

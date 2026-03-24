@@ -45,7 +45,7 @@ const Lightbox = ({ src, alt, onClose }) => {
   if (!src) return null
   return (
     <div
-      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 p-4"
+      className="gestor-imagenes__lightbox-backdrop"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -54,15 +54,15 @@ const Lightbox = ({ src, alt, onClose }) => {
       <button
         type="button"
         onClick={onClose}
-        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
+        className="gestor-imagenes__lightbox-close"
         aria-label="Cerrar"
       >
-        <X className="w-6 h-6" />
+        <X className="gestor-imagenes__lightbox-close-icon" strokeWidth={2} />
       </button>
       <img
         src={src}
         alt={alt ?? 'Imagen'}
-        className="max-w-full max-h-full object-contain"
+        className="gestor-imagenes__lightbox-img"
         onClick={(e) => e.stopPropagation()}
       />
     </div>
@@ -311,59 +311,55 @@ export default function GestorImagenes() {
   const hasImage = (p) => Array.isArray(p.imagenesReferenciales) && p.imagenesReferenciales.length > 0
   const mainImageUrl = (p) => (hasImage(p) ? p.imagenesReferenciales[0] : null)
 
+  const dropzoneClass = [
+    'gestor-imagenes__dropzone',
+    zipLoading && 'gestor-imagenes__dropzone--loading',
+    isDragActive && 'gestor-imagenes__dropzone--drag',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <div className="gestor-imagenes rounded-xl border border-slate-600 bg-slate-800/40 overflow-hidden">
-      {/* Tabs */}
-      <div className="flex border-b border-slate-600">
+    <div className="gestor-imagenes">
+      <div className="gestor-imagenes__tabs" role="tablist">
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'bulk'}
           onClick={() => setActiveTab('bulk')}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'bulk'
-              ? 'bg-slate-700 text-white border-b-2 border-indigo-500'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
-          }`}
+          className={`gestor-imagenes__tab ${activeTab === 'bulk' ? 'gestor-imagenes__tab--active' : ''}`}
         >
           Carga Masiva
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'product'}
           onClick={() => setActiveTab('product')}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'product'
-              ? 'bg-slate-700 text-white border-b-2 border-indigo-500'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
-          }`}
+          className={`gestor-imagenes__tab ${activeTab === 'product' ? 'gestor-imagenes__tab--active' : ''}`}
         >
           Gestión por Producto
         </button>
       </div>
 
-      <div className="p-5">
+      <div className="gestor-imagenes__body">
         {activeTab === 'bulk' && (
           <>
-            <h3 className="text-lg font-semibold text-slate-100 mb-1">Importación Inteligente por SKU</h3>
-            <p className="text-sm text-slate-300 mb-4">
-              Suelta imágenes o un <strong>ZIP</strong> con fotos nombradas por SKU. El sistema vinculará cada archivo al producto cuyo SKU coincida con el nombre (sin extensión). Ej:{' '}
-              <code className="bg-slate-700 px-1.5 py-0.5 rounded">8000008164911.jpg</code> o un ZIP con muchas así.
+            <h3 className="gestor-imagenes__heading">Importación Inteligente por SKU</h3>
+            <p className="gestor-imagenes__lead">
+              Suelta imágenes o un <strong>ZIP</strong> con fotos nombradas por SKU. El sistema vinculará cada archivo al
+              producto cuyo SKU coincida con el nombre (sin extensión). Ej:{' '}
+              <code className="gestor-imagenes__code">8000008164911.jpg</code> o un ZIP con muchas así.
             </p>
 
-            <div
-              {...getRootProps()}
-              className={`
-                relative flex flex-col items-center justify-center min-h-[180px] rounded-lg border-2 border-dashed cursor-pointer
-                transition-colors py-8 px-4
-                ${zipLoading ? 'pointer-events-none opacity-70' : ''}
-                ${isDragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-500 hover:border-slate-400 bg-slate-800/30 hover:bg-slate-700/30'}
-              `}
-            >
+            <div {...getRootProps()} className={dropzoneClass}>
               <input {...getInputProps()} aria-label="Soltar imágenes o ZIP para asociar por SKU" />
               {zipLoading ? (
-                <Loader2 className="w-12 h-12 text-indigo-400 mb-2 animate-spin" strokeWidth={1.5} aria-hidden />
+                <Loader2 className="gestor-imagenes__dropzone-icon gestor-imagenes__dropzone-icon--spin" strokeWidth={1.5} aria-hidden />
               ) : (
-                <Upload className="w-12 h-12 text-slate-400 mb-2" strokeWidth={1.5} />
+                <Upload className="gestor-imagenes__dropzone-icon" strokeWidth={1.5} aria-hidden />
               )}
-              <p className="text-slate-300 text-center text-sm">
+              <p className="gestor-imagenes__dropzone-text">
                 {zipLoading
                   ? 'Extrayendo imágenes del ZIP…'
                   : isDragActive
@@ -373,46 +369,37 @@ export default function GestorImagenes() {
             </div>
 
             {pendingBulk && (
-              <div
-                className="mt-5 rounded-lg border border-indigo-500/50 bg-slate-900/80 p-4 space-y-3"
-                role="region"
-                aria-label="Vista previa de carga masiva de imágenes"
-              >
-                <div className="flex items-center gap-2 text-indigo-200 font-semibold text-sm">
-                  <AlertCircle className="w-5 h-5 shrink-0" />
+              <div className="gestor-imagenes__preview" role="region" aria-label="Vista previa de carga masiva de imágenes">
+                <div className="gestor-imagenes__preview-title">
+                  <AlertCircle className="gestor-imagenes__icon-md" strokeWidth={2} aria-hidden />
                   Revisa el diagnóstico antes de aplicar
                 </div>
-                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-4 text-xs text-slate-200">
+                <div className="gestor-imagenes__preview-stats">
                   <div>
-                    <span className="text-emerald-400 font-semibold">{pendingBulk.matched.length}</span> vincularán
+                    <span className="gestor-imagenes__stat-ok">{pendingBulk.matched.length}</span> vincularán
                     correctamente
                   </div>
                   <div>
-                    <span className="text-amber-400 font-semibold">{pendingBulk.unmatchedFiles.length}</span> SKU
+                    <span className="gestor-imagenes__stat-warn">{pendingBulk.unmatchedFiles.length}</span> SKU
                     inexistente
                   </div>
                   <div>
-                    <span className="text-orange-400 font-semibold">{pendingBulk.duplicateInBatch.length}</span>{' '}
+                    <span className="gestor-imagenes__stat-dup">{pendingBulk.duplicateInBatch.length}</span>{' '}
                     duplicado en este lote
                   </div>
                   <div>
-                    <span className="text-red-400 font-semibold">{pendingBulk.formatInvalid.length}</span> formato no
+                    <span className="gestor-imagenes__stat-err">{pendingBulk.formatInvalid.length}</span> formato no
                     válido
                   </div>
                 </div>
                 {pendingBulk.matched.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-medium text-slate-300 mb-2">Vista previa (aplicar)</h4>
-                    <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                    <h4 className="gestor-imagenes__preview-subtitle">Vista previa (aplicar)</h4>
+                    <div className="gestor-imagenes__thumb-grid">
                       {pendingBulk.matched.map((m, i) => (
-                        <div
-                          key={i}
-                          className="flex flex-col items-center rounded-lg overflow-hidden border border-slate-600 bg-slate-800 w-20"
-                        >
-                          <img src={m.previewUrl} alt="" className="w-full h-16 object-cover" />
-                          <span className="text-[10px] text-slate-400 truncate w-full px-1 py-0.5 text-center">
-                            {m.sku}
-                          </span>
+                        <div key={i} className="gestor-imagenes__thumb">
+                          <img src={m.previewUrl} alt="" />
+                          <span className="gestor-imagenes__thumb-label">{m.sku}</span>
                         </div>
                       ))}
                     </div>
@@ -421,115 +408,102 @@ export default function GestorImagenes() {
                 {(pendingBulk.unmatchedFiles.length > 0 ||
                   pendingBulk.duplicateInBatch.length > 0 ||
                   pendingBulk.formatInvalid.length > 0) && (
-                  <ul className="text-xs text-slate-400 space-y-1 max-h-32 overflow-y-auto list-disc list-inside">
+                  <ul className="gestor-imagenes__issue-list">
                     {pendingBulk.formatInvalid.map((name, i) => (
                       <li key={`f-${i}`}>
-                        <span className="text-red-300">Formato no válido</span>: {name}
+                        <span className="gestor-imagenes__stat-err">Formato no válido</span>: {name}
                       </li>
                     ))}
                     {pendingBulk.unmatchedFiles.map((u, i) => (
                       <li key={`u-${i}`}>
-                        <span className="text-amber-300">SKU inexistente</span>: {u.fileName}
+                        <span className="gestor-imagenes__stat-warn">SKU inexistente</span>: {u.fileName}
                       </li>
                     ))}
                     {pendingBulk.duplicateInBatch.map((d, i) => (
                       <li key={`d-${i}`}>
-                        <span className="text-orange-300">Duplicado en lote</span> SKU {d.sku}: {d.file} (ya usado{' '}
+                        <span className="gestor-imagenes__stat-dup">Duplicado en lote</span> SKU {d.sku}: {d.file} (ya usado{' '}
                         {d.firstFile})
                       </li>
                     ))}
                   </ul>
                 )}
-                <div className="flex flex-wrap gap-2 pt-1">
+                <div className="gestor-imagenes__preview-actions">
                   <button
                     type="button"
                     onClick={confirmBulkApplication}
                     disabled={pendingBulk.matched.length === 0}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium"
+                    className="import__btn"
                   >
-                    <CheckCircle className="w-4 h-4" />
-                    Confirmar y aplicar
+                    <span className="gestor-imagenes__btn-inner">
+                      <CheckCircle className="gestor-imagenes__icon-sm" strokeWidth={2} />
+                      Confirmar y aplicar
+                    </span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={discardPendingBulk}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-500 text-slate-200 text-sm hover:bg-slate-700/50"
-                  >
+                  <button type="button" onClick={discardPendingBulk} className="import__btn import__btn--secondary">
                     Descartar
                   </button>
                 </div>
               </div>
             )}
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={handleClearAll}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-600/80 hover:bg-red-600 text-white text-sm font-medium"
-              >
-                <Trash2 className="w-4 h-4" />
-                Limpiar Todo
+            <div className="gestor-imagenes__toolbar">
+              <button type="button" onClick={handleClearAll} className="import__btn import__btn--danger">
+                <span className="gestor-imagenes__btn-inner">
+                  <Trash2 className="gestor-imagenes__icon-sm" strokeWidth={2} />
+                  Limpiar Todo
+                </span>
               </button>
             </div>
 
             {lastResult && (
-              <div className="mt-5 space-y-4">
-                <div className="rounded-lg border border-slate-600 bg-slate-800/70 px-4 py-3 text-sm text-slate-100 flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-emerald-400" />
-                    <span className="font-semibold">Resumen de carga masiva</span>
+              <div className="gestor-imagenes__result-stack">
+                <div className="gestor-imagenes__result-block">
+                  <div className="gestor-imagenes__result-head">
+                    <CheckCircle className="gestor-imagenes__icon-md" strokeWidth={2} aria-hidden />
+                    <span>Resumen de carga masiva</span>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-3 text-xs sm:text-sm">
+                  <div className="gestor-imagenes__result-grid">
                     <div>
-                      <span className="font-semibold text-emerald-300">
-                        {lastResult.successCount}
-                      </span>{' '}
-                      fotos asociadas con éxito
+                      <strong className="gestor-imagenes__r-ok">{lastResult.successCount}</strong> fotos asociadas con
+                      éxito
                     </div>
                     <div>
-                      <span className="font-semibold text-amber-300">
-                        {lastResult.errorCount}
-                      </span>{' '}
-                      no aplicadas (sin SKU, duplicado en lote o formato)
+                      <strong className="gestor-imagenes__r-warn">{lastResult.errorCount}</strong> no aplicadas (sin
+                      SKU, duplicado en lote o formato)
                     </div>
                     <div>
-                      <span className="font-semibold text-sky-300">
-                        {lastResult.productosSinFoto}
-                      </span>{' '}
-                      SKUs que aún no tienen foto
+                      <strong className="gestor-imagenes__r-info">{lastResult.productosSinFoto}</strong> SKUs que aún no
+                      tienen foto
                     </div>
                   </div>
                 </div>
                 {lastResult.matched.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-slate-200 mb-2">Asociadas ({lastResult.matched.length})</h4>
-                    <div className="flex flex-wrap gap-2">
+                    <h4 className="gestor-imagenes__section-label">Asociadas ({lastResult.matched.length})</h4>
+                    <div className="gestor-imagenes__thumb-grid gestor-imagenes__thumb-grid--result">
                       {lastResult.matched.map((item, i) => (
-                        <div
-                          key={i}
-                          className="flex flex-col items-center rounded-lg overflow-hidden border border-slate-600 bg-slate-800 w-24"
-                        >
-                          <img src={item.url} alt={item.productName} className="w-full h-20 object-cover" />
-                          <span className="text-xs text-slate-400 truncate w-full px-1 py-0.5 text-center">{item.sku}</span>
+                        <div key={i} className="gestor-imagenes__thumb">
+                          <img src={item.url} alt={item.productName} />
+                          <span className="gestor-imagenes__thumb-label">{item.sku}</span>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
                 {lastResult.unmatched.length > 0 && (
-                  <div className="border border-slate-600 rounded-lg overflow-hidden">
+                  <div className="gestor-imagenes__error-panel">
                     <button
                       type="button"
                       onClick={() => setShowErrors((v) => !v)}
-                      className="w-full flex items-center justify-between px-3 py-2 text-sm bg-slate-800 hover:bg-slate-700 text-red-200"
+                      className="gestor-imagenes__error-toggle"
                     >
                       <span>Errores de asociación (renombrar para coincidir con SKU)</span>
-                      <span className="text-xs">
+                      <span className="gestor-imagenes__toggle-meta">
                         {showErrors ? 'Ocultar lista' : 'Mostrar lista'} ({lastResult.unmatched.length})
                       </span>
                     </button>
                     {showErrors && (
-                      <ul className="text-sm text-slate-200 list-disc list-inside space-y-1 bg-slate-900/70 p-3 max-h-48 overflow-auto">
+                      <ul className="gestor-imagenes__error-list">
                         {lastResult.unmatched.map((name, i) => (
                           <li key={i}>{name}</li>
                         ))}
@@ -544,60 +518,59 @@ export default function GestorImagenes() {
 
         {activeTab === 'product' && (
           <>
-            <h3 className="text-lg font-semibold text-slate-100 mb-2">Inventario</h3>
-            <p className="text-sm text-slate-300 mb-4">
+            <h3 className="gestor-imagenes__heading">Inventario</h3>
+            <p className="gestor-imagenes__lead">
               Asigna una imagen a cada producto con el botón de cámara. La miniatura es clicable para ampliar.
             </p>
             {products.length === 0 ? (
-              <p className="text-slate-400 text-sm">No hay productos. Carga primero un CSV en la sección superior.</p>
+              <p className="gestor-imagenes__empty">No hay productos. Carga primero un CSV en la sección superior.</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-slate-600">
-                <table className="w-full text-sm text-left border-collapse">
-                  <thead className="bg-slate-700/50 text-slate-200">
+              <div className="gestor-imagenes__table-wrap">
+                <table className="gestor-imagenes__table" role="table">
+                  <thead>
                     <tr>
-                      <th className="px-3 py-3 w-20 border-b border-slate-500">Foto</th>
-                      <th className="px-3 py-3 border-b border-slate-500">Nombre</th>
-                      <th className="px-3 py-3 border-b border-slate-500">SKU</th>
-                      <th className="px-3 py-3 w-32 border-b border-slate-500">Acciones</th>
+                      <th className="gestor-imagenes__th-narrow">Foto</th>
+                      <th>Nombre</th>
+                      <th>SKU</th>
+                      <th className="gestor-imagenes__th-actions">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="text-slate-300">
+                  <tbody>
                     {products.map((p) => {
                       const mainUrl = mainImageUrl(p)
                       return (
-                        <tr key={p.id} className="hover:bg-slate-700/30 border-b border-slate-500 last:border-b-0">
-                          <td className="px-3 py-3">
+                        <tr key={p.id}>
+                          <td>
                             <button
                               type="button"
                               onClick={() => mainUrl && setLightboxSrc(mainUrl)}
-                              className={`block w-14 h-14 rounded border overflow-hidden bg-slate-700 ${mainUrl ? 'cursor-pointer hover:ring-2 ring-indigo-500' : 'cursor-default'}`}
+                              className={`gestor-imagenes__thumb-btn ${mainUrl ? 'gestor-imagenes__thumb-btn--clickable' : ''}`}
+                              aria-label={mainUrl ? `Ampliar foto de ${p.name}` : 'Sin foto'}
                             >
-                              <img
-                                src={mainUrl ?? PLACEHOLDER_NO_PHOTO}
-                                alt={p.name}
-                                className="w-full h-full object-cover"
-                              />
+                              <img src={mainUrl ?? PLACEHOLDER_NO_PHOTO} alt={p.name} />
                             </button>
                           </td>
-                          <td className="px-3 py-3 font-medium text-slate-100">{p.name}</td>
-                          <td className="px-3 py-3">
-                            <span className="inline-flex items-center gap-1.5">
+                          <td>
+                            <span className="gestor-imagenes__cell-strong">{p.name}</span>
+                          </td>
+                          <td>
+                            <span className="gestor-imagenes__sku-cell">
                               {p.codigoInventario ?? p.sku ?? '—'}
                               {hasImage(p) && (
-                                <CheckCircle className="w-4 h-4 text-green-500 shrink-0" aria-label="Tiene imagen" />
+                                <CheckCircle className="gestor-imagenes__icon-sm" strokeWidth={2} aria-label="Tiene imagen" />
                               )}
                             </span>
                           </td>
-                          <td className="px-3 py-3">
+                          <td>
                             <button
                               type="button"
                               onClick={() => {
                                 uploadTargetIdRef.current = p.id
                                 fileInputRef.current?.click()
                               }}
-                              className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium"
+                              className="gestor-imagenes__cam-btn"
                             >
-                              <Camera className="w-4 h-4" />
+                              <Camera className="gestor-imagenes__icon-sm" strokeWidth={2} />
                               Subir
                             </button>
                           </td>
@@ -615,7 +588,7 @@ export default function GestorImagenes() {
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          className="hidden"
+          className="gestor-imagenes__hidden-input"
           onChange={handleIndividualUpload}
           aria-label="Subir imagen del producto"
         />
