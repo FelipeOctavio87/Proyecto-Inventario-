@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useInventory } from '../context/InventoryContext'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -159,10 +159,29 @@ const TrazabilidadPage = () => {
   const retailRequired = isRetailRequiredForType(type)
   const isEntrada = getMovementSign(type) === 'entrada'
   const isNewSkuMode = productId === NEW_SKU_VALUE
+  const hasProducts = products.length > 0
+
+  useEffect(() => {
+    if (!hasProducts && getMovementSign(type) !== 'entrada') {
+      setType(DEFAULT_TYPE)
+    }
+  }, [hasProducts, type])
 
   const handleSubmit = (e) => {
     e.preventDefault()
     setValidationError('')
+
+    // Validación de regla de negocio: SKU nuevo solo existe para ENTRADAS.
+    if (isNewSkuMode && !isEntrada) {
+      setValidationError('Solo los movimientos de entrada permiten registrar un SKU nuevo.')
+      return
+    }
+
+    // Sin inventario solo se permite ENTRADA (devolución/recepción) con SKU nuevo.
+    if (!hasProducts && !isEntrada) {
+      setValidationError('No hay inventario cargado. Para iniciar stock, registre una entrada con SKU nuevo.')
+      return
+    }
 
     if (reasonRequired && !String(reason || '').trim()) {
       setValidationError('El motivo es obligatorio para este tipo de movimiento.')
@@ -372,6 +391,41 @@ const TrazabilidadPage = () => {
           </h3>
           <form className="trazabilidad__form space-y-5 max-w-xl" onSubmit={handleSubmit}>
             <div>
+              <label className="product-list__filter-label" htmlFor="traz-tipo-mov">
+                Tipo de movimiento
+              </label>
+              <select
+                id="traz-tipo-mov"
+                value={type}
+                onChange={(e) => {
+                  const newType = e.target.value
+                  setType(newType)
+                  if (!isRetailRequiredForType(newType)) setRetail('')
+                  if (getMovementSign(newType) !== 'entrada' && productId === NEW_SKU_VALUE) {
+                    setProductId('')
+                    setNewSkuCode('')
+                    setNewSkuName('')
+                  }
+                }}
+                className="product-list__filter-select"
+              >
+                {Object.entries(MOVEMENT_CATEGORIES).map(([key, cat]) => (
+                  <optgroup key={key} label={cat.label}>
+                    {cat.types.map((t) => (
+                      <option
+                        key={t.value}
+                        value={t.value}
+                        disabled={!hasProducts && cat.sign !== 'entrada'}
+                      >
+                        {t.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+
+            <div>
               <label className="product-list__filter-label" htmlFor="traz-producto">
                 Producto
               </label>
@@ -382,7 +436,9 @@ const TrazabilidadPage = () => {
                 className="product-list__filter-select"
                 required={!isNewSkuMode}
               >
-                <option value="">Seleccionar bien</option>
+                <option value="">
+                  {hasProducts ? 'Seleccionar bien' : 'Sin productos cargados'}
+                </option>
                 {isEntrada && (
                   <option value={NEW_SKU_VALUE}>➕ Devolución / entrada — SKU nuevo (crear activo)</option>
                 )}
@@ -392,6 +448,12 @@ const TrazabilidadPage = () => {
                   </option>
                 ))}
               </select>
+              {!hasProducts && !isEntrada && (
+                <p className="mt-2 text-sm text-amber-700">
+                  No hay inventario cargado para movimientos de salida/internos. Seleccione un tipo de entrada para crear
+                  el primer activo.
+                </p>
+              )}
             </div>
 
             {isNewSkuMode && (
@@ -428,37 +490,6 @@ const TrazabilidadPage = () => {
                 </div>
               </div>
             )}
-
-            <div>
-              <label className="product-list__filter-label" htmlFor="traz-tipo-mov">
-                Tipo de movimiento
-              </label>
-              <select
-                id="traz-tipo-mov"
-                value={type}
-                onChange={(e) => {
-                  const newType = e.target.value
-                  setType(newType)
-                  if (!isRetailRequiredForType(newType)) setRetail('')
-                  if (getMovementSign(newType) !== 'entrada' && productId === NEW_SKU_VALUE) {
-                    setProductId('')
-                    setNewSkuCode('')
-                    setNewSkuName('')
-                  }
-                }}
-                className="product-list__filter-select"
-              >
-                {Object.entries(MOVEMENT_CATEGORIES).map(([key, cat]) => (
-                  <optgroup key={key} label={cat.label}>
-                    {cat.types.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
 
             {retailRequired && (
               <div>
