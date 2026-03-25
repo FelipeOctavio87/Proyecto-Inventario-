@@ -213,6 +213,7 @@ const ImportPage = () => {
     importPlan &&
     importPlan.appliedRows.length > 0 &&
     (!blockIfBlockingErrors || effectiveBlockingErrors.length === 0)
+  const isPurgeReady = vaciarPhrase.trim() === CONFIRM_PURGE_TEXT && !vaciarLoading
 
   if (!canBulkCsv) {
     return (
@@ -556,7 +557,7 @@ const ImportPage = () => {
               <div className="import__modal-actions">
                 <button
                   type="button"
-                  className="import__btn import__btn--danger"
+                  className={`import__btn import__btn--danger ${isPurgeReady ? 'import__btn--ready' : ''}`}
                   onClick={handleVaciarInventario}
                   disabled={vaciarPhrase.trim() !== CONFIRM_PURGE_TEXT || vaciarLoading}
                 >

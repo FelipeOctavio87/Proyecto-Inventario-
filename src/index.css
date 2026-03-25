@@ -1156,6 +1156,7 @@ body {
   border: none;
   border-radius: 6px;
   cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, opacity 140ms ease;
 }
 
 .import__btn:hover {
@@ -1359,16 +1360,42 @@ body {
   background-color: #b71c1c;
 }
 
-.import__block--vaciar {
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #444;
+.import__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Estado listo para confirmar "BORRAR" en modal de vaciado */
+.import__btn--danger.import__btn--ready {
+  background-color: #b71c1c;
+  box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.22), 0 3px 10px rgba(183, 28, 28, 0.22);
+  transform: translateY(-1px);
+}
+
+.import__btn--danger.import__btn--ready:hover {
+  background-color: #a31515;
+  box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.28), 0 4px 12px rgba(163, 21, 21, 0.28);
+}
+
+/* Vaciar inventario: mismo lenguaje visual que tarjetas claras (Bienes / import bienes-panel) */
+.import__block.import__block--vaciar {
+  margin-top: 1.5rem;
+  padding: 16px 20px;
+  background: #f7f9fc;
+  border: 1px solid #e6e9ef;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.import__block.import__block--vaciar .import__block-title {
+  color: #1f2937;
 }
 
 .import__vaciar-desc {
   margin: 0 0 0.75rem;
   font-size: 0.9rem;
-  opacity: 0.9;
+  color: rgba(31, 41, 55, 0.85);
+  line-height: 1.5;
 }
 
 .import__modal-overlay {
@@ -1382,21 +1409,27 @@ body {
 }
 
 .import__modal {
-  background: #242424;
-  border: 1px solid #444;
+  background: #f7f9fc;
+  border: 1px solid #e6e9ef;
   border-radius: 8px;
   padding: 1.5rem;
   max-width: 400px;
   width: 90%;
+  color: #1f2937;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .import__modal h3 {
   margin: 0 0 0.75rem;
+  color: #1f2937;
+  font-size: 1.05rem;
 }
 
 .import__modal p {
   margin: 0 0 1rem;
   font-size: 0.9rem;
+  color: rgba(31, 41, 55, 0.88);
+  line-height: 1.5;
 }
 
 .import__modal-actions {
@@ -1412,6 +1445,7 @@ body {
 .import__purge-hint {
   margin: 0 0 0.5rem;
   font-size: 0.85rem;
+  color: rgba(31, 41, 55, 0.8);
 }
 
 /* Modal vaciar: mismo estilo de caja que Bienes (product-list__filter-input) */
