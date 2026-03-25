@@ -1,8 +1,8 @@
 # Requisitos del proyecto 
 
-Sistema de inventario alineado al llamado de la **Municipalidad de Algarrobo** (Traspaso SLEP Litoral, Ley N° 24.040).
+Sistema de inventario
 
-**Referencia Mercado Público:** [Ficha 2687-34-COT26](https://buscador.mercadopublico.cl/ficha?code=2687-34-COT26)
+**Referencia Mercado Público:** 
 
 ---
 
@@ -10,11 +10,11 @@ Sistema de inventario alineado al llamado de la **Municipalidad de Algarrobo** (
 
 | Requisito | Descripción |
 |-----------|-------------|
-| **Objeto** | Inventario de bienes muebles e inmuebles – actualización de inventario en el marco del traspaso SLEP Litoral (Ley N° 24.040). |
-| **Volumen** | Toma de inventario para **9.000 bienes de uso** al **28.02.2026**. |
+| **Objeto** | Inventario de bienes muebles e inmuebles  |
+| **Volumen** | Toma de inventario. |
 | **Metodología** | Levantamiento e identificación mediante **inventario ciego** con **verificación en terreno**, en base a **inventario teórico**, para actualizar inventario. |
 | **Entregables** | **Codificación y rotulación** de bienes muebles; **conciliación contable** y **valorización de activos**. |
-| **Plazos** | Toma de inventario en **marzo**; entrega de **informe hasta el 06 de abril de 2026**. |
+| **Plazos** | Toma de inventario en **Definir Meses**. |
 
 ---
 
