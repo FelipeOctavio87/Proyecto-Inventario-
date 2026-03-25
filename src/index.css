@@ -2171,16 +2171,15 @@ body {
 }
 
 .trazabilidad__form-block {
-  padding: 1.25rem;
-  border: 1px solid #333;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.2);
   margin-bottom: 2rem;
+  color: #1f2937;
 }
 
 .trazabilidad__form-title {
-  margin: 0 0 1rem;
-  font-size: 1.1rem;
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #1f2937;
 }
 
 .trazabilidad__form {
@@ -2254,10 +2253,6 @@ body {
 
 .trazabilidad__filters {
   margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(100, 116, 139, 0.45);
-  background: rgba(15, 23, 42, 0.35);
 }
 
 .trazabilidad__filters-row {
@@ -2293,12 +2288,12 @@ body {
   }
 }
 
-.trazabilidad__filters-label {
-  display: block;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #cbd5e1;
-  margin-bottom: 0.25rem;
+/* Labels e inputs se alinean con el look & feel de Bienes (product-list__) */
+.trazabilidad__help {
+  font-size: 0.9rem;
+  color: rgba(31, 41, 55, 0.75);
+  margin: 0 0 1.25rem;
+  line-height: 1.5;
 }
 
 .trazabilidad__filters-search {
@@ -2327,24 +2322,9 @@ body {
   box-sizing: border-box;
 }
 
-/* Historial de movimientos: inputs/selects con fondo claro (no aplican reglas del formulario "Registrar") */
-.trazabilidad__filters .trazabilidad__input {
-  background: #f2f2f2;
-  color: #1a1a1a;
-  border-color: #ccc;
-  font-size: 1rem;
-}
-
-.trazabilidad__filters .trazabilidad__input::placeholder {
-  color: #666;
-}
-
-.trazabilidad__filters select.trazabilidad__input option {
-  background: #fff;
-  color: #1a1a1a;
-}
-
-.trazabilidad__filters .trazabilidad__input:disabled {
+/* Ajustes menores para controles del historial usando estilos de Bienes */
+.trazabilidad__filters .product-list__filter-input:disabled,
+.trazabilidad__filters .product-list__filter-select:disabled {
   opacity: 0.75;
   background: #e8e8e8;
   color: #555;
@@ -2411,6 +2391,11 @@ body {
 .trazabilidad__codigo {
   color: rgba(255, 255, 255, 0.6);
   font-size: 0.85em;
+}
+
+.trazabilidad__sku-cell {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .trazabilidad__delta--pos {

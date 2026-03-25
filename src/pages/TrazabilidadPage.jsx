@@ -361,22 +361,25 @@ const TrazabilidadPage = () => {
   return (
     <div className="page trazabilidad-page">
       <section className="trazabilidad">
-        <h2 className="trazabilidad__title">Gestor de Trazabilidad</h2>
-        <p className="trazabilidad__subtitle">
+        <h2 className="product-list__title">Gestor de Trazabilidad</h2>
+        <p className="product-list__subtitle">
           Registro histórico de movimientos de unidades. Cada movimiento tiene responsable, fecha y motivo.
         </p>
 
-        <div className="trazabilidad__form-block bg-white/10 rounded-xl border border-slate-500/50 p-8 shadow-lg text-base">
-          <h3 className="trazabilidad__form-title text-xl font-semibold text-slate-100 mb-5">
+        <div className="trazabilidad__form-block product-list__filter-card">
+          <h3 className="trazabilidad__form-title">
             Registrar movimiento
           </h3>
           <form className="trazabilidad__form space-y-5 max-w-xl" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-base font-medium text-slate-200 mb-2">Producto</label>
+              <label className="product-list__filter-label" htmlFor="traz-producto">
+                Producto
+              </label>
               <select
+                id="traz-producto"
                 value={productId}
                 onChange={(e) => setProductId(e.target.value)}
-                className="w-full text-lg rounded-lg border border-slate-400 bg-slate-100 text-slate-900 px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="product-list__filter-select"
                 required={!isNewSkuMode}
               >
                 <option value="">Seleccionar bien</option>
@@ -397,23 +400,29 @@ const TrazabilidadPage = () => {
                   El activo no existe en el listado. Se creará un nuevo registro con 1 unidad.
                 </p>
                 <div>
-                  <label className="block text-base font-medium text-slate-200 mb-2">Código (SKU) *</label>
+                  <label className="product-list__filter-label" htmlFor="traz-new-sku">
+                    Código (SKU) *
+                  </label>
                   <input
+                    id="traz-new-sku"
                     type="text"
                     value={newSkuCode}
                     onChange={(e) => setNewSkuCode(e.target.value)}
-                    className="w-full text-lg rounded-lg border border-slate-400 bg-slate-100 text-slate-900 px-4 py-3 focus:ring-2 focus:ring-indigo-500"
+                    className="product-list__filter-input"
                     placeholder="Ej. INV-RET-2026-001"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-base font-medium text-slate-200 mb-2">Nombre del activo</label>
+                  <label className="product-list__filter-label" htmlFor="traz-new-name">
+                    Nombre del activo
+                  </label>
                   <input
+                    id="traz-new-name"
                     type="text"
                     value={newSkuName}
                     onChange={(e) => setNewSkuName(e.target.value)}
-                    className="w-full text-lg rounded-lg border border-slate-400 bg-slate-100 text-slate-900 px-4 py-3 focus:ring-2 focus:ring-indigo-500"
+                    className="product-list__filter-input"
                     placeholder="Ej. Equipo devuelto por cliente"
                   />
                 </div>
@@ -421,8 +430,11 @@ const TrazabilidadPage = () => {
             )}
 
             <div>
-              <label className="block text-base font-medium text-slate-200 mb-2">Tipo de movimiento</label>
+              <label className="product-list__filter-label" htmlFor="traz-tipo-mov">
+                Tipo de movimiento
+              </label>
               <select
+                id="traz-tipo-mov"
                 value={type}
                 onChange={(e) => {
                   const newType = e.target.value
@@ -434,7 +446,7 @@ const TrazabilidadPage = () => {
                     setNewSkuName('')
                   }
                 }}
-                className="w-full text-lg rounded-lg border border-slate-400 bg-slate-100 text-slate-900 px-4 py-3 focus:ring-2 focus:ring-indigo-500"
+                className="product-list__filter-select"
               >
                 {Object.entries(MOVEMENT_CATEGORIES).map(([key, cat]) => (
                   <optgroup key={key} label={cat.label}>
@@ -450,13 +462,14 @@ const TrazabilidadPage = () => {
 
             {retailRequired && (
               <div>
-                <label className="block text-base font-medium text-slate-200 mb-2">
+                <label className="product-list__filter-label" htmlFor="traz-retail">
                   Retail <span className="text-red-400">*</span>
                 </label>
                 <select
+                  id="traz-retail"
                   value={retail}
                   onChange={(e) => setRetail(e.target.value)}
-                  className="w-full text-lg rounded-lg border border-slate-400 bg-slate-100 text-slate-900 px-4 py-3 focus:ring-2 focus:ring-indigo-500"
+                  className="product-list__filter-select"
                   required
                 >
                   <option value="">Seleccionar Retail</option>
@@ -469,14 +482,15 @@ const TrazabilidadPage = () => {
 
             {!isNewSkuMode && (
             <div>
-              <label className="block text-base font-medium text-slate-200 mb-2">
+              <label className="product-list__filter-label" htmlFor="traz-cantidad">
                 Cantidad {getMovementSign(type) === 'interno' && '(positivo o negativo)'}
               </label>
               <input
+                id="traz-cantidad"
                 type="number"
                 value={quantityInput}
                 onChange={(e) => setQuantityInput(e.target.value)}
-                className="w-full text-lg rounded-lg border border-slate-400 bg-slate-100 text-slate-900 px-4 py-3 focus:ring-2 focus:ring-indigo-500"
+                className="product-list__filter-input"
                 placeholder={
                   getMovementSign(type) === 'interno'
                     ? 'Ej. 2 o -1'
@@ -493,9 +507,9 @@ const TrazabilidadPage = () => {
             )}
 
             <div>
-              <label className="block text-base font-medium text-slate-200 mb-2">Responsable</label>
+              <label className="product-list__filter-label">Responsable</label>
               <span
-                className="inline-block w-full text-lg rounded-lg border border-slate-500 bg-slate-700/50 text-slate-200 px-4 py-3"
+                className="product-list__filter-input trazabilidad__responsable"
                 aria-readonly="true"
               >
                 {responsibleDisplay}
@@ -503,24 +517,28 @@ const TrazabilidadPage = () => {
             </div>
 
             <div>
-              <label className="block text-base font-medium text-slate-200 mb-2">Fecha y hora</label>
+              <label className="product-list__filter-label" htmlFor="traz-fecha">
+                Fecha y hora
+              </label>
               <input
+                id="traz-fecha"
                 type="datetime-local"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full text-lg rounded-lg border border-slate-400 bg-slate-100 text-slate-900 px-4 py-3 focus:ring-2 focus:ring-indigo-500"
+                className="product-list__filter-input"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-base font-medium text-slate-200 mb-2">
+              <label className="product-list__filter-label" htmlFor="traz-motivo">
                 Motivo {reasonRequired && <span className="text-red-400">*</span>}
               </label>
               <textarea
+                id="traz-motivo"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full text-lg rounded-lg border border-slate-400 bg-slate-100 text-slate-900 px-4 py-3 min-h-[88px] focus:ring-2 focus:ring-indigo-500"
+                className="product-list__filter-input trazabilidad__textarea"
                 placeholder="Motivo del movimiento"
                 rows={2}
                 required={reasonRequired}
@@ -544,15 +562,15 @@ const TrazabilidadPage = () => {
         <div className="trazabilidad__history mt-8">
           <h3 className="trazabilidad__history-title">Historial de movimientos</h3>
 
-          <div className="trazabilidad__filters" aria-label="Filtros del historial">
+          <div className="trazabilidad__filters product-list__filter-card" aria-label="Filtros del historial">
             <div className="trazabilidad__filters-row">
-              <label className="trazabilidad__filters-label" htmlFor="traz-busqueda">
+              <label className="product-list__filter-label" htmlFor="traz-busqueda">
                 Buscar
               </label>
               <input
                 id="traz-busqueda"
                 type="search"
-                className="trazabilidad__filters-search trazabilidad__input"
+                className="product-list__filter-input trazabilidad__filters-search"
                 placeholder="Código, nombre o barcode…"
                 value={movementSearch}
                 onChange={(e) => setMovementSearch(e.target.value)}
@@ -560,12 +578,12 @@ const TrazabilidadPage = () => {
               />
             </div>
             <div className="trazabilidad__filters-row">
-              <label className="trazabilidad__filters-label" htmlFor="traz-tipo">
+              <label className="product-list__filter-label" htmlFor="traz-tipo">
                 Tipo de movimiento
               </label>
               <select
                 id="traz-tipo"
-                className="trazabilidad__filters-type trazabilidad__input"
+                className="product-list__filter-select trazabilidad__filters-type"
                 value={movementTypeFilter}
                 onChange={(e) => setMovementTypeFilter(e.target.value)}
               >
@@ -584,13 +602,13 @@ const TrazabilidadPage = () => {
             </div>
             <div className="trazabilidad__filters-row trazabilidad__filters-row--dates">
               <div className="trazabilidad__filters-date">
-                <label className="trazabilidad__filters-label" htmlFor="traz-desde">
+                <label className="product-list__filter-label" htmlFor="traz-desde">
                   Desde
                 </label>
                 <input
                   id="traz-desde"
                   type="date"
-                  className="trazabilidad__input"
+                  className="product-list__filter-input"
                   value={dateDesde}
                   disabled={dateFilterAll}
                   onChange={(e) => {
@@ -600,13 +618,13 @@ const TrazabilidadPage = () => {
                 />
               </div>
               <div className="trazabilidad__filters-date">
-                <label className="trazabilidad__filters-label" htmlFor="traz-hasta">
+                <label className="product-list__filter-label" htmlFor="traz-hasta">
                   Hasta
                 </label>
                 <input
                   id="traz-hasta"
                   type="date"
-                  className="trazabilidad__input"
+                  className="product-list__filter-input"
                   value={dateHasta}
                   disabled={dateFilterAll}
                   onChange={(e) => {
@@ -656,12 +674,13 @@ const TrazabilidadPage = () => {
               filtros o usa «Ver todo».
             </p>
           ) : (
-            <div className="trazabilidad__table-wrap">
-              <table className="trazabilidad__table">
+            <div className="product-table-wrapper">
+              <table className="product-table">
                 <thead>
                   <tr>
                     <th>Fecha</th>
-                    <th>Producto / Código</th>
+                    <th>Producto</th>
+                    <th>SKU</th>
                     <th>Tipo</th>
                     <th>Origen</th>
                     <th>Retail</th>
@@ -675,9 +694,8 @@ const TrazabilidadPage = () => {
                   {filteredMovements.map((m) => (
                     <tr key={m.id}>
                       <td>{formatDate(m.date)}</td>
-                      <td>
-                        {m.productName} <span className="trazabilidad__codigo">({m.codigoInventario})</span>
-                      </td>
+                      <td>{m.productName}</td>
+                      <td className="trazabilidad__sku-cell">{m.codigoInventario ?? '—'}</td>
                       <td>{MOVEMENT_TYPE_LABELS[m.type] ?? m.type}</td>
                       <td className="trazabilidad__origin">{getMovementOriginLabel(m)}</td>
                       <td>{m.retail ?? '—'}</td>

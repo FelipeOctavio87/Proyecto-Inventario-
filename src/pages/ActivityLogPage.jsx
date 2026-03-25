@@ -25,6 +25,15 @@ const formatDate = (iso) => {
   }
 }
 
+/** Evita "Usuario: Usuario Autenticado: correo" y deja un solo texto legible. */
+const formatAuditUsuarioLine = (raw) => {
+  if (raw == null || String(raw).trim() === '') return null
+  const s = String(raw).trim()
+  const m = s.match(/^Usuario\s+Autenticado:\s*(.+)$/i)
+  if (m) return { label: 'Responsable', value: m[1].trim() }
+  return { label: 'Usuario', value: s }
+}
+
 const ActivityLogPage = () => {
   const { auditEvents, revertAuditEvent } = useInventory()
   const [message, setMessage] = useState('')
@@ -121,47 +130,54 @@ const ActivityLogPage = () => {
           </p>
         ) : (
           <ol className="relative border-l border-slate-600 pl-4 space-y-6">
-            {events.map((evt) => (
+            {events.map((evt) => {
+              const usuarioLine = evt.usuario ? formatAuditUsuarioLine(evt.usuario) : null
+              return (
               <li key={evt.id} className="ml-2">
                 <div className="absolute -left-2 top-2 w-3 h-3 rounded-full bg-indigo-400 border border-slate-900" />
                 <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-4 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
-                      {getIconForEvent(evt)}
-                      <span>{evt.accion}</span>
+                  <div className="mb-2 flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+                    <div className="min-w-0 flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+                        {getIconForEvent(evt)}
+                        <span className="break-words">{evt.accion}</span>
+                      </div>
                       {evt.undone && (
-                        <span className="ml-2 text-[11px] uppercase tracking-wide text-amber-300">
+                        <span
+                          className="inline-flex w-fit max-w-full items-center rounded border border-amber-500/40 bg-amber-950/35 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-200"
+                          aria-label="Evento revertido"
+                        >
                           Revertido
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-slate-400">
+                    <div className="shrink-0 text-xs text-slate-400 tabular-nums">
                       {formatDate(evt.timestamp)}
                     </div>
                   </div>
-                  <div className="text-xs text-slate-300 mb-2">
-                    {evt.usuario && (
-                      <span className="mr-3">
-                        <span className="font-semibold">Usuario:</span>{' '}
-                        {evt.usuario}
-                      </span>
+                  <div className="text-xs text-slate-300 mb-2 space-y-1.5">
+                    {usuarioLine && (
+                      <div className="break-words">
+                        <span className="font-semibold">{usuarioLine.label}:</span>{' '}
+                        <span>{usuarioLine.value}</span>
+                      </div>
                     )}
                     {evt.sku && (
-                      <span>
+                      <div className="break-all sm:break-words">
                         <span className="font-semibold">SKU:</span>{' '}
-                        {evt.sku}
-                      </span>
+                        <span>{evt.sku}</span>
+                      </div>
                     )}
                   </div>
                   {evt.detalle && (
-                    <p className="text-sm text-slate-100 mb-3">{evt.detalle}</p>
+                    <p className="text-sm leading-relaxed text-slate-100 mb-3">{evt.detalle}</p>
                   )}
                   {evt.correlationId && (
                     <p className="text-xs text-slate-400 mb-2">
                       <span className="font-semibold text-slate-300">ID correlación:</span> {evt.correlationId}
                     </p>
                   )}
-                  <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-600/40 pt-3 text-xs">
                     <div className="flex flex-col gap-1">
                       {evt.actionType !== 'IMPORT_COMMIT' &&
                         evt.actionType !== 'IMPORT_REJECTED' &&
@@ -204,7 +220,8 @@ const ActivityLogPage = () => {
                   </div>
                 </div>
               </li>
-            ))}
+              )
+            })}
           </ol>
         )}
       </section>

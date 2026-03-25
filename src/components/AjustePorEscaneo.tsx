@@ -36,8 +36,7 @@ type RetailChoice = (typeof RETAIL_OPTIONS)[number]
 
 type ProductoEscaneado = BarcodeLookupResponse & { barcode: string }
 
-const inputClass =
-  'w-full text-lg rounded-lg border border-slate-400 bg-slate-100 text-slate-900 px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
+const inputClass = 'product-list__filter-input'
 
 export default function AjustePorEscaneo() {
   const { user } = useAuth()
@@ -250,11 +249,11 @@ export default function AjustePorEscaneo() {
   }
 
   return (
-    <div className="trazabilidad__form-block bg-white/10 rounded-xl border border-slate-500/50 p-8 shadow-lg text-base mt-10">
-      <h3 className="trazabilidad__form-title text-xl font-semibold text-slate-100 mb-2">
+    <div className="trazabilidad__form-block product-list__filter-card mt-10">
+      <h3 className="trazabilidad__form-title">
         Ajuste por escaneo (pistola lectora)
       </h3>
-      <p className="text-sm text-slate-300 mb-5">
+      <p className="trazabilidad__help">
         Enfoque el cursor en el campo de escaneo. La pistola enviará el código y normalmente termina con{' '}
         <strong>Enter</strong> o <strong>Tab</strong>. Requiere backend en{' '}
         <code className="text-indigo-200">GET /api/barcodes/&#123;barcode&#125;</code> y{' '}
@@ -264,7 +263,7 @@ export default function AjustePorEscaneo() {
       </p>
 
       <div className="mb-6">
-        <label className="block text-sm font-medium text-slate-200 mb-2" htmlFor="ajuste-scan-input">
+        <label className="product-list__filter-label" htmlFor="ajuste-scan-input">
           Campo de escaneo
         </label>
         <input
