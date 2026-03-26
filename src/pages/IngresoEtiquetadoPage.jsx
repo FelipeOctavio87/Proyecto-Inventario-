@@ -3,18 +3,18 @@ import { useReactToPrint } from 'react-to-print'
 import { useAuth } from '../context/AuthContext'
 import { useInventory } from '../context/InventoryContext'
 import PrintableLabel from '../components/PrintableLabel'
-import { useLocalStorage } from '../hooks/useLocalStorage'
 
 const IngresoEtiquetadoPage = () => {
   const { user } = useAuth()
-  const { products, generateUnitItems } = useInventory()
+  const { products, generateUnitItems, unitItems, clearUnitItems, markUnitsPrinted } = useInventory()
   const [productId, setProductId] = useState('')
   const [quantity, setQuantity] = useState(1)
   const [labelsBatch, setLabelsBatch] = useState([])
   const [error, setError] = useState('')
   const [storageMessage, setStorageMessage] = useState('')
+  const [printMessage, setPrintMessage] = useState('')
   const printRef = useRef(null)
-  const [storedUnits, setStoredUnits] = useLocalStorage('inventory_units', [])
+  const lastGeneratedKeysRef = useRef([])
 
   const selectedProduct = useMemo(
     () => products.find((p) => p.id === Number(productId)) ?? null,
@@ -23,6 +23,7 @@ const IngresoEtiquetadoPage = () => {
 
   const handleGenerate = () => {
     setError('')
+    setPrintMessage('')
     const qty = Number(quantity)
     if (!productId) {
       setError('Seleccione un producto.')
@@ -43,19 +44,7 @@ const IngresoEtiquetadoPage = () => {
     }
     setLabelsBatch(result.items || [])
     setStorageMessage('')
-    const toPersist = (result.items || []).map((it) => ({
-      id: `SN-${new Date(it.ingresoAt).getFullYear()}-${it.serial}`,
-      master_sku: it.sku,
-      status: 'disponible',
-      timestamp: it.ingresoAt,
-    }))
-    setStoredUnits((prev) => {
-      const byId = new Map((Array.isArray(prev) ? prev : []).map((u) => [u.id, u]))
-      toPersist.forEach((u) => {
-        if (!byId.has(u.id)) byId.set(u.id, u)
-      })
-      return [...byId.values()]
-    })
+    lastGeneratedKeysRef.current = (result.items || []).map((it) => String(it.id_unidad ?? it.id ?? '').trim()).filter(Boolean)
     console.log('[INGRESO_ETIQUETADO][MOCK_UNIDADES]', result.items || [])
   }
 
@@ -64,13 +53,34 @@ const IngresoEtiquetadoPage = () => {
     documentTitle: selectedProduct
       ? `etiquetas-${selectedProduct.codigoInventario ?? selectedProduct.sku}`
       : 'etiquetas-datamatrix',
+    onAfterPrint: () => {
+      const keys = lastGeneratedKeysRef.current || []
+      if (keys.length === 0) return
+      markUnitsPrinted(keys, { actorEmail: user?.email })
+      setPrintMessage('Etiquetas impresas: unidades marcadas como `etiqueta_impresa: true`.')
+      lastGeneratedKeysRef.current = []
+    },
   })
 
   const handleClearStoredUnits = () => {
     if (!window.confirm('¿Eliminar todas las unidades serializadas guardadas en este navegador?')) return
-    setStoredUnits([])
+    clearUnitItems({ actorEmail: user?.email })
     setStorageMessage('Storage limpiado: inventory_units quedó vacío.')
+    setLabelsBatch([])
+    lastGeneratedKeysRef.current = []
   }
+
+  const latestUnits = useMemo(() => {
+    const list = Array.isArray(unitItems) ? unitItems : []
+    return list
+      .slice()
+      .sort((a, b) => {
+        const ta = new Date(a.fecha_ingreso ?? a.ingresoAt ?? 0).getTime()
+        const tb = new Date(b.fecha_ingreso ?? b.ingresoAt ?? 0).getTime()
+        return tb - ta
+      })
+      .slice(0, 20)
+  }, [unitItems])
 
   return (
     <div className="page ingreso-page">
@@ -147,6 +157,11 @@ const IngresoEtiquetadoPage = () => {
                 <PrintableLabel key={item.id} item={item} />
               ))}
             </div>
+            {printMessage && (
+              <p className="import__validation-msg import__validation-msg--warn" style={{ marginTop: '0.75rem' }}>
+                {printMessage}
+              </p>
+            )}
           </div>
         )}
 
@@ -163,31 +178,33 @@ const IngresoEtiquetadoPage = () => {
               type="button"
               className="import__btn import__btn--secondary"
               onClick={handleClearStoredUnits}
-              disabled={storedUnits.length === 0}
+              disabled={(Array.isArray(unitItems) ? unitItems : []).length === 0}
             >
               Limpiar inventory_units
             </button>
           </div>
-          {storedUnits.length === 0 ? (
+          {(!Array.isArray(unitItems) ? 0 : unitItems.length) === 0 ? (
             <p className="import__hint">Aún no hay unidades serializadas en este navegador.</p>
           ) : (
             <div className="product-table-wrapper">
               <table className="product-table">
                 <thead>
                   <tr>
-                    <th>ID Serial</th>
+                    <th>ID unidad</th>
+                    <th>Serial humano</th>
                     <th>SKU Maestro</th>
-                    <th>Estado</th>
-                    <th>Timestamp</th>
+                    <th>Impresa</th>
+                    <th>Fecha ingreso</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[...storedUnits].slice(-20).reverse().map((u) => (
-                    <tr key={u.id}>
-                      <td>{u.id}</td>
-                      <td>{u.master_sku}</td>
-                      <td>{u.status}</td>
-                      <td>{new Date(u.timestamp).toLocaleString('es-CL')}</td>
+                  {latestUnits.map((u) => (
+                    <tr key={u.id_unidad ?? u.id}>
+                      <td style={{ fontFamily: 'ui-monospace, monospace' }}>{u.id_unidad ?? '—'}</td>
+                      <td style={{ fontWeight: 700 }}>{u.serial ?? '—'}</td>
+                      <td>{u.sku_maestro ?? u.sku ?? '—'}</td>
+                      <td>{u.etiqueta_impresa === true ? 'Sí' : 'No'}</td>
+                      <td>{new Date(u.fecha_ingreso ?? u.ingresoAt ?? 0).toLocaleString('es-CL')}</td>
                     </tr>
                   ))}
                 </tbody>

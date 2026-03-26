@@ -75,6 +75,53 @@ const writeUnitsToLocalStorage = (items) => {
   }
 }
 
+/**
+ * Normaliza unidades serializadas existentes a la estructura actual:
+ * { id_unidad, sku_maestro, serial, gs1LikeCode, estado, fecha_ingreso, etiqueta_impresa }
+ */
+const normalizeUnitItems = (items) => {
+  if (!Array.isArray(items)) return []
+  return items
+    .map((u) => {
+      if (!u || typeof u !== 'object') return null
+
+      const hasNewFields = u.id_unidad && u.sku_maestro && u.serial && (u.gs1LikeCode || u.gs1LikeCode === '')
+
+      if (hasNewFields) {
+        return {
+          ...u,
+          etiqueta_impresa: u.etiqueta_impresa === true,
+          // compatibilidad: asegurar fecha_ingreso.
+          fecha_ingreso: u.fecha_ingreso ?? u.ingresoAt ?? u.timestamp ?? new Date().toISOString(),
+        }
+      }
+
+      const sku = String(u.sku_maestro ?? u.sku ?? u.master_sku ?? '').trim()
+      const serial =
+        String(u.serial ?? u.id ?? '').trim() ||
+        (typeof u.id_unidad === 'string'
+          ? u.id_unidad.match(/\(21\)([^()]+)$/)?.[1]?.trim()
+          : '')
+
+      if (!sku || !serial) return null
+
+      const status = String(u.estado ?? u.status ?? 'Disponible - Inventario Inicial').trim()
+      const ingresoRaw = u.fecha_ingreso ?? u.ingresoAt ?? u.timestamp ?? new Date().toISOString()
+      const ingresoIso = new Date(ingresoRaw).toISOString()
+
+      return createSerializedUnit({
+        sku,
+        serial,
+        status,
+        ingresoAt: ingresoIso,
+        etiquetaImpresa: u.etiqueta_impresa === true,
+        productName: String(u.productName ?? ''),
+        productId: u.productId ?? null,
+      })
+    })
+    .filter(Boolean)
+}
+
 export const InventoryProvider = ({ children }) => {
   const [products, setProducts] = useState(initialProducts)
   const [movements, setMovements] = useState([])
@@ -93,9 +140,9 @@ export const InventoryProvider = ({ children }) => {
       if (Array.isArray(data.products)) setProducts(data.products)
       if (Array.isArray(data.movements)) setMovements(data.movements)
       if (Array.isArray(data.auditEvents)) setAuditEvents(data.auditEvents)
-      if (Array.isArray(data.unitItems)) setUnitItems(data.unitItems)
+      if (Array.isArray(data.unitItems)) setUnitItems(normalizeUnitItems(data.unitItems))
       const unitsLs = readUnitsFromLocalStorage()
-      if (Array.isArray(unitsLs)) setUnitItems(unitsLs)
+      if (Array.isArray(unitsLs)) setUnitItems(normalizeUnitItems(unitsLs))
       setPersistenceHydrated(true)
     })
     return () => {
@@ -464,31 +511,99 @@ export const InventoryProvider = ({ children }) => {
         })
       }
 
-      // Explosión unitaria para trazabilidad serializada desde CSV (inventario inicial / actualización).
+      // Explosión unitaria para trazabilidad serializada desde CSV.
+      // - overwrite: reemplaza unidades de las SKUs involucradas (y en modo overwrite se reconstruyen desde cero).
+      // - actualización: ajusta cantidad final preservando unidades "impresas" cuando existe.
       if (rows.length > 0) {
-        setUnitItems((prev) => {
-          const existingSerials = new Set(prev.map((u) => String(u.serial ?? '')).filter(Boolean))
-          const generated = []
-          rows.forEach((row) => {
-            const sku = String(row.codigoInventario ?? row.sku ?? '').trim()
-            const qty = Math.max(0, Number(row.quantity) || 0)
-            const productName = String(row.name ?? '').trim()
-            if (!sku || qty <= 0) return
-            for (let i = 0; i < qty; i += 1) {
-              const serial = createUniqueSerial(existingSerials)
-              existingSerials.add(serial)
-              generated.push(
-                createSerializedUnit({
-                  sku,
-                  serial,
-                  productName,
-                  status: 'Disponible - Inventario Inicial',
-                })
-              )
-            }
+        const skuRowMap = new Map()
+        rows.forEach((row) => {
+          const sku = String(row.codigoInventario ?? row.sku ?? '').trim()
+          const qty = Math.max(0, Number(row.quantity) || 0)
+          const productName = String(row.name ?? '').trim()
+          if (!sku || qty <= 0) return
+          const current = skuRowMap.get(sku)
+          skuRowMap.set(sku, {
+            sku,
+            productName: productName || current?.productName || '',
+            qty: (current?.qty ?? 0) + qty,
           })
-          return [...prev, ...generated]
         })
+
+        if (skuRowMap.size > 0) {
+          setUnitItems((prev) => {
+            const skuSet = new Set(Array.from(skuRowMap.keys()))
+            const existingSerialsAll = new Set(prev.map((u) => String(u.serial ?? '')).filter(Boolean))
+
+            // overwrite: se reconstruye todo con las SKUs del CSV.
+            if (overwrite) {
+              const generated = []
+              const serials = new Set(existingSerialsAll)
+              Array.from(skuRowMap.values()).forEach(({ sku, qty, productName }) => {
+                for (let i = 0; i < qty; i += 1) {
+                  const serial = createUniqueSerial(serials)
+                  serials.add(serial)
+                  generated.push(
+                    createSerializedUnit({
+                      sku,
+                      serial,
+                      productName,
+                      status: 'Disponible - Inventario Inicial',
+                      etiquetaImpresa: false,
+                    })
+                  )
+                }
+              })
+              return generated
+            }
+
+            // actualización: ajustar por SKU final deseado.
+            const next = prev.filter((u) => !skuSet.has(String(u.sku_maestro ?? u.sku ?? '').trim()))
+
+            const generatedMissing = []
+            Array.from(skuRowMap.values()).forEach(({ sku, qty, productName }) => {
+              const prevForSku = prev.filter(
+                (u) => String(u.sku_maestro ?? u.sku ?? '').trim() === sku
+              )
+              const printed = prevForSku.filter((u) => u.etiqueta_impresa === true)
+              const unprinted = prevForSku.filter((u) => u.etiqueta_impresa !== true)
+
+              const desired = Math.max(0, qty)
+              const printedKept = printed.slice(0, desired)
+              const unprintedToKeepCount = Math.max(0, desired - printedKept.length)
+              const unprintedKept = unprinted.slice(0, unprintedToKeepCount)
+
+              const existingSerials = new Set(
+                Array.from(
+                  new Set(
+                    next
+                      .concat(printedKept)
+                      .concat(unprintedKept)
+                      .map((u) => String(u.serial ?? ''))
+                      .filter(Boolean)
+                  )
+                )
+              )
+
+              const missing = desired - (printedKept.length + unprintedKept.length)
+              for (let i = 0; i < missing; i += 1) {
+                const serial = createUniqueSerial(existingSerials)
+                existingSerials.add(serial)
+                generatedMissing.push(
+                  createSerializedUnit({
+                    sku,
+                    serial,
+                    productName,
+                    status: 'Disponible - Inventario Inicial',
+                    etiquetaImpresa: false,
+                  })
+                )
+              }
+              next.push(...printedKept, ...unprintedKept)
+            })
+
+            return next.concat(generatedMissing)
+          })
+        }
       }
 
       const modeLabel = overwrite ? 'Inventario inicial (sobrescritura)' : 'Actualización masiva (merge por SKU)'
@@ -886,8 +1001,9 @@ export const InventoryProvider = ({ children }) => {
           serial,
           productId: pid,
           productName: product.name,
-          status: 'Disponible',
+          status: 'Disponible - Inventario Inicial',
           ingresoAt: nowIso,
+          etiquetaImpresa: false,
         })
       })
 
@@ -941,6 +1057,61 @@ export const InventoryProvider = ({ children }) => {
     return changed
   }, [])
 
+  const markUnitsPrinted = useCallback(
+    (unitIds, options = {}) => {
+      const ids = Array.isArray(unitIds) ? unitIds : []
+      const idSet = new Set(ids.map((x) => String(x ?? '').trim()).filter(Boolean))
+      if (idSet.size === 0) return 0
+
+      const actor = String(options.actorEmail ?? '').trim() || 'Sistema'
+      let changedCount = 0
+
+      setUnitItems((prev) =>
+        prev.map((u) => {
+          const uKey = String(u.id_unidad ?? u.id ?? '').trim()
+          if (!uKey || !idSet.has(uKey)) return u
+          if (u.etiqueta_impresa === true) return u
+          changedCount += 1
+          return {
+            ...u,
+            etiqueta_impresa: true,
+          }
+        })
+      )
+
+      if (changedCount > 0) {
+        // Audit suave (sin reversión todavía).
+        logAuditEvent({
+          usuario: actor,
+          accion: 'Impresión masiva de etiquetas DataMatrix',
+          actionType: 'LABEL_PRINT',
+          targetSku: '',
+          reversible: false,
+          detalle: `Se marcaron ${changedCount} unidad(es) con etiqueta_impresa: true.`,
+          metadata: { unitIds: ids },
+        })
+      }
+
+      return changedCount
+    },
+    [logAuditEvent]
+  )
+
+  const clearUnitItems = useCallback(
+    (options = {}) => {
+      const actor = String(options.actorEmail ?? '').trim() || 'Sistema'
+      setUnitItems([])
+      logAuditEvent({
+        usuario: actor,
+        accion: 'Limpieza de unidades serializadas (localStorage inventory_units)',
+        actionType: 'UNITS_CLEAR',
+        reversible: false,
+        detalle: 'Se eliminaron todas las unidades serializadas de la llave local inventory_units.',
+      })
+    },
+    [logAuditEvent]
+  )
+
   const resetToInitial = useCallback(() => {
     setProducts(initialProducts)
     setMovements([])
@@ -955,6 +1126,7 @@ export const InventoryProvider = ({ children }) => {
     unitItems,
     addBienesFromImport,
     vaciarInventario,
+    clearUnitItems,
     addProduct,
     updateProduct,
     addProductImages,
@@ -964,6 +1136,7 @@ export const InventoryProvider = ({ children }) => {
     generateUnitItems,
     getAvailableUnitsBySku,
     updateUnitStatus,
+    markUnitsPrinted,
     logAuditEvent,
     revertAuditEvent,
     resetToInitial,

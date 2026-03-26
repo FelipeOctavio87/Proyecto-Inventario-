@@ -1,36 +1,40 @@
-import { useEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import bwipjs from 'bwip-js'
 
 const PrintableLabel = ({ item }) => {
-  const canvasRef = useRef(null)
+  const matrixRef = useRef(null)
 
-  useEffect(() => {
-    if (!canvasRef.current || !item?.gs1LikeCode) return
+  useLayoutEffect(() => {
+    if (!matrixRef.current || !item?.gs1LikeCode) return
     try {
-      bwipjs.toCanvas(canvasRef.current, {
+      // bwip-js: toSVG(options) devuelve string SVG completa (síncrono).
+      const svgMarkup = bwipjs.toSVG({
         bcid: 'datamatrix',
         text: item.gs1LikeCode,
         scale: 3,
         paddingwidth: 2,
         paddingheight: 2,
       })
+      matrixRef.current.innerHTML = svgMarkup
     } catch (err) {
-      // Keep UI resilient if an encoding edge-case happens.
-      console.error('Error generando DataMatrix:', err)
+      // Mantener UI resiliente si hay un caso raro de codificación.
+      console.error('Error generando DataMatrix (SVG):', err)
     }
-  }, [item])
+  }, [item?.gs1LikeCode])
+
+  const productName = String(item?.productName ?? '').trim()
+  const shortName = productName.length > 28 ? `${productName.slice(0, 28)}…` : productName
+  const serial = String(item?.serial ?? '').trim()
 
   return (
-    <article className="label-item" aria-label={`Etiqueta ${item?.serial ?? ''}`}>
-      <div className="label-item__matrix">
-        <canvas ref={canvasRef} />
-      </div>
-      <div className="label-item__meta">
-        <p className="label-item__name" title={item?.productName}>
-          {item?.productName}
-        </p>
-        <p><strong>SKU:</strong> {item?.sku}</p>
-        <p><strong>Serial:</strong> {item?.serial}</p>
+    <article className="label-item" aria-label={`Etiqueta ${serial}`}>
+      <div className="label-item__matrix" aria-hidden="true" ref={matrixRef} />
+
+      <div className="label-item__right">
+        <div className="label-item__name" title={productName || '—'}>
+          {shortName || '—'}
+        </div>
+        <div className="label-item__serial">{serial || '—'}</div>
       </div>
     </article>
   )

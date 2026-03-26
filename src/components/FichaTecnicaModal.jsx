@@ -74,7 +74,7 @@ const readFilesAsDataUrls = (files) => {
 
 const FichaTecnicaModal = ({ product, onClose }) => {
   const { user } = useAuth()
-  const { addProductImages, updateProduct, unitItems } = useInventory()
+  const { addProductImages, updateProduct, unitItems, markUnitsPrinted } = useInventory()
   const { products } = useProducts()
   const currentProduct = product ? (products.find((p) => p.id === product.id) ?? product) : null
 
@@ -90,6 +90,9 @@ const FichaTecnicaModal = ({ product, onClose }) => {
   const scanBurstRef = useRef(emptyScanBurst())
   const [selectedUnitForPrint, setSelectedUnitForPrint] = useState(null)
   const unitPrintRef = useRef(null)
+  const pendingPrintUnitRef = useRef(false)
+
+  const [unitEtiquetaFilter, setUnitEtiquetaFilter] = useState('todas') // todas | impresas | no_impresas
 
   useEffect(() => {
     if (!currentProduct) return
@@ -111,6 +114,34 @@ const FichaTecnicaModal = ({ product, onClose }) => {
     scanBurstRef.current = emptyScanBurst()
   }, [currentProduct?.id, currentProduct?.quantity])
 
+  const skuMasterSafe = currentProduct
+    ? String(currentProduct.codigoInventario ?? currentProduct.sku ?? '').trim()
+    : ''
+
+  // Hook siempre debe ejecutarse (no debe quedar condicionado por `if (!currentProduct) return null`).
+  const handlePrintUnit = useReactToPrint({
+    contentRef: unitPrintRef,
+    documentTitle: selectedUnitForPrint
+      ? `etiqueta-${selectedUnitForPrint.serial}`
+      : `etiqueta-${skuMasterSafe}`,
+    onAfterPrint: () => {
+      const u = selectedUnitForPrint
+      if (!u) return
+      const key = String(u.id_unidad ?? u.id ?? '').trim()
+      if (!key) return
+      markUnitsPrinted([key], { actorEmail: user?.email })
+    },
+  })
+
+  // Importante: esperar a que el label ya esté renderizado antes de imprimir,
+  // así el SVG DataMatrix alcanza a generarse.
+  useEffect(() => {
+    if (!pendingPrintUnitRef.current) return
+    if (!selectedUnitForPrint) return
+    pendingPrintUnitRef.current = false
+    handlePrintUnit()
+  }, [selectedUnitForPrint, handlePrintUnit])
+
   if (!currentProduct) return null
 
   const imagenes = currentProduct.imagenesReferenciales ?? []
@@ -121,11 +152,13 @@ const FichaTecnicaModal = ({ product, onClose }) => {
     (u) => String(u.sku_maestro ?? u.sku ?? '').trim() === skuMaster
   )
 
-  const handlePrintUnit = useReactToPrint({
-    contentRef: unitPrintRef,
-    documentTitle: selectedUnitForPrint
-      ? `etiqueta-${selectedUnitForPrint.serial}`
-      : `etiqueta-${skuMaster}`,
+  const totalUnits = unitRows.length
+  const labeledUnitsCount = unitRows.filter((u) => u?.etiqueta_impresa === true).length
+
+  const filteredUnitRows = unitRows.filter((u) => {
+    if (unitEtiquetaFilter === 'impresas') return u?.etiqueta_impresa === true
+    if (unitEtiquetaFilter === 'no_impresas') return u?.etiqueta_impresa !== true
+    return true
   })
 
   const handleFileChange = (e) => {
@@ -276,10 +309,50 @@ const FichaTecnicaModal = ({ product, onClose }) => {
 
           <div className="ficha-unidades">
             <h4 className="ficha-ubicacion__title">Unidades en Stock (Serializadas)</h4>
+            <p className="ficha-ubicacion__summary" style={{ marginTop: '-0.15rem' }}>
+              Unidades Etiquetadas: <strong>{labeledUnitsCount}</strong> / <strong>{totalUnits}</strong>
+            </p>
+
+            <div className="import__collab-actions" style={{ marginTop: '0.75rem', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="product-list__ficha-btn"
+                style={{
+                  background: unitEtiquetaFilter === 'todas' ? 'rgba(100, 108, 255, 0.15)' : 'transparent',
+                }}
+                onClick={() => setUnitEtiquetaFilter('todas')}
+              >
+                Todas
+              </button>
+              <button
+                type="button"
+                className="product-list__ficha-btn"
+                style={{
+                  background: unitEtiquetaFilter === 'impresas' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                  borderColor: unitEtiquetaFilter === 'impresas' ? 'rgb(16, 185, 129)' : undefined,
+                  color: unitEtiquetaFilter === 'impresas' ? 'rgb(16, 185, 129)' : undefined,
+                }}
+                onClick={() => setUnitEtiquetaFilter('impresas')}
+              >
+                Impresas ({unitRows.filter((u) => u?.etiqueta_impresa === true).length})
+              </button>
+              <button
+                type="button"
+                className="product-list__ficha-btn"
+                style={{
+                  background:
+                    unitEtiquetaFilter === 'no_impresas' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                }}
+                onClick={() => setUnitEtiquetaFilter('no_impresas')}
+              >
+                No impresas ({unitRows.filter((u) => u?.etiqueta_impresa !== true).length})
+              </button>
+            </div>
+
             {unitRows.length === 0 ? (
               <p className="ficha-ubicacion__summary">No hay unidades serializadas para este SKU.</p>
             ) : (
-              <div className="product-table-wrapper">
+              <div className="product-table-wrapper" style={{ marginTop: '0.75rem' }}>
                 <table className="product-table">
                   <thead>
                     <tr>
@@ -290,7 +363,7 @@ const FichaTecnicaModal = ({ product, onClose }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {unitRows.map((u) => (
+                    {filteredUnitRows.map((u) => (
                       <tr key={u.id_unidad ?? u.id}>
                         <td>{u.id_unidad}</td>
                         <td>{u.serial}</td>
@@ -299,9 +372,10 @@ const FichaTecnicaModal = ({ product, onClose }) => {
                           <button
                             type="button"
                             className="product-list__ficha-btn"
+                            style={{ width: '100%', textAlign: 'center', padding: '0.6rem 0.75rem' }}
                             onClick={() => {
                               setSelectedUnitForPrint(u)
-                              setTimeout(() => handlePrintUnit(), 0)
+                              setPendingPrintUnit(true)
                             }}
                           >
                             Imprimir etiqueta
@@ -311,6 +385,11 @@ const FichaTecnicaModal = ({ product, onClose }) => {
                     ))}
                   </tbody>
                 </table>
+                {filteredUnitRows.length === 0 ? (
+                  <p className="ficha-ubicacion__summary" style={{ marginTop: '0.75rem' }}>
+                    No hay unidades para este filtro.
+                  </p>
+                ) : null}
               </div>
             )}
             <div className="ficha-unit-print-hide">

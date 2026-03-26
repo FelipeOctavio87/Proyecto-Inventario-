@@ -65,8 +65,43 @@ export default function AjustePorEscaneo() {
   const [genericModalOpen, setGenericModalOpen] = useState(false)
   const [genericProductSku, setGenericProductSku] = useState('')
 
+  const [scanSuccessFlash, setScanSuccessFlash] = useState(false)
+  const scanFlashTimerRef = useRef<number | null>(null)
+
   const abortLookupRef = useRef<AbortController | null>(null)
   const abortSubmitRef = useRef<AbortController | null>(null)
+
+  const playSuccessBeep = () => {
+    try {
+      const AudioCtx = (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext) as
+        | typeof AudioContext
+        | undefined
+      if (!AudioCtx) return
+
+      const ctx = new AudioCtx()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = 880
+      gain.gain.value = 0.035
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start()
+      window.setTimeout(() => {
+        osc.stop()
+        ctx.close().catch(() => {})
+      }, 90)
+    } catch {
+      // Silenciar fallos de audio (permiso/dispositivo).
+    }
+  }
+
+  const triggerScanSuccess = () => {
+    setScanSuccessFlash(true)
+    playSuccessBeep()
+    if (scanFlashTimerRef.current) window.clearTimeout(scanFlashTimerRef.current)
+    scanFlashTimerRef.current = window.setTimeout(() => setScanSuccessFlash(false), 420)
+  }
 
   /** Reinicia motivo/cantidad/tipo (no limpia mensajes ni funcionario). */
   const resetCamposAjuste = useCallback(() => {
@@ -113,6 +148,10 @@ export default function AjustePorEscaneo() {
         setSelectedUnitId(String(unit.id_unidad ?? unit.id))
         setSuccess(`Unidad detectada correctamente: ${parsedDm.serial}`)
         setError(null)
+
+        // Feedback inmediato (útil en escaneo mobile).
+        triggerScanSuccess()
+
         setProducto({
           sku: String(productLocal.codigoInventario ?? productLocal.sku ?? ''),
           nombre: productLocal.name,
@@ -323,6 +362,7 @@ export default function AjustePorEscaneo() {
 
   return (
     <div className="trazabilidad__form-block product-list__filter-card mt-10">
+      {scanSuccessFlash && <div className="scan-success-flash" aria-hidden="true" />}
       <h3 className="trazabilidad__form-title">
         Ajuste por escaneo (pistola lectora)
       </h3>
@@ -572,6 +612,15 @@ export default function AjustePorEscaneo() {
                               setGenericModalOpen(false)
                               setSuccess(`Unidad seleccionada manualmente: ${u.serial}`)
                             }}
+                            style={{
+                              width: '100%',
+                              padding: '0.75rem 0.85rem',
+                              fontSize: '1rem',
+                              fontWeight: 700,
+                              borderRadius: 10,
+                              textAlign: 'center',
+                              minHeight: 48,
+                            }}
                           >
                             Seleccionar
                           </button>
@@ -587,6 +636,7 @@ export default function AjustePorEscaneo() {
                 type="button"
                 className="import__btn import__btn--secondary"
                 onClick={() => setGenericModalOpen(false)}
+                style={{ padding: '0.85rem 1rem', fontSize: '1rem', fontWeight: 700, minHeight: 48 }}
               >
                 Cerrar
               </button>
