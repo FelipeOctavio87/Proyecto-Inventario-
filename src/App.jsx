@@ -7,6 +7,7 @@ import CatalogoPage from './pages/CatalogoPage'
 import TrazabilidadPage from './pages/TrazabilidadPage'
 import ActivityLogPage from './pages/ActivityLogPage'
 import LoginPage from './pages/LoginPage'
+import IngresoEtiquetadoPage from './pages/IngresoEtiquetadoPage'
 
 const Nav = () => {
   const { user, logout } = useAuth()
@@ -33,6 +34,9 @@ const Nav = () => {
       </NavLink>
       <NavLink to="/trazabilidad" className={({ isActive }) => (isActive ? 'app__nav-link app__nav-link--active' : 'app__nav-link')}>
         Trazabilidad
+      </NavLink>
+      <NavLink to="/ingreso" className={({ isActive }) => (isActive ? 'app__nav-link app__nav-link--active' : 'app__nav-link')}>
+        Ingreso y Etiquetado
       </NavLink>
       <NavLink to="/actividad" className={({ isActive }) => (isActive ? 'app__nav-link app__nav-link--active' : 'app__nav-link')}>
         Historial de actividad
@@ -76,7 +80,8 @@ const App = () => {
         <Route path="/import" element={<ImportPage />} />
         <Route path="/catalogo" element={<CatalogoPage />} />
         <Route path="/trazabilidad" element={<TrazabilidadPage />} />
-         <Route path="/actividad" element={<ActivityLogPage />} />
+        <Route path="/ingreso" element={<IngresoEtiquetadoPage />} />
+        <Route path="/actividad" element={<ActivityLogPage />} />
         <Route path="/login" element={<Navigate to="/import" replace />} />
       </Routes>
     </main>

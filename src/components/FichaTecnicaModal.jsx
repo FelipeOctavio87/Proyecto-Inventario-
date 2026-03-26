@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useReactToPrint } from 'react-to-print'
 import {
   TIPO_BIEN,
   ESTADO_VERIFICACION,
@@ -10,6 +11,7 @@ import { useInventory } from '../context/InventoryContext'
 import { useAuth } from '../context/AuthContext'
 import { useProducts } from '../hooks/useProducts'
 import BarcodeDisplay from './BarcodeDisplay'
+import PrintableLabel from './PrintableLabel'
 import {
   barcodesMatchForManualAdjust,
   isBarcodeEligibleForManualAdjust,
@@ -72,7 +74,7 @@ const readFilesAsDataUrls = (files) => {
 
 const FichaTecnicaModal = ({ product, onClose }) => {
   const { user } = useAuth()
-  const { addProductImages, updateProduct } = useInventory()
+  const { addProductImages, updateProduct, unitItems } = useInventory()
   const { products } = useProducts()
   const currentProduct = product ? (products.find((p) => p.id === product.id) ?? product) : null
 
@@ -86,6 +88,8 @@ const FichaTecnicaModal = ({ product, onClose }) => {
   const [cantidadFeedback, setCantidadFeedback] = useState('')
   const [cantidadError, setCantidadError] = useState('')
   const scanBurstRef = useRef(emptyScanBurst())
+  const [selectedUnitForPrint, setSelectedUnitForPrint] = useState(null)
+  const unitPrintRef = useRef(null)
 
   useEffect(() => {
     if (!currentProduct) return
@@ -112,6 +116,17 @@ const FichaTecnicaModal = ({ product, onClose }) => {
   const imagenes = currentProduct.imagenesReferenciales ?? []
   const hasImagenes = Array.isArray(imagenes) && imagenes.length > 0
   const fotoCount = imagenes.length
+  const skuMaster = String(currentProduct.codigoInventario ?? currentProduct.sku ?? '').trim()
+  const unitRows = (unitItems || []).filter(
+    (u) => String(u.sku_maestro ?? u.sku ?? '').trim() === skuMaster
+  )
+
+  const handlePrintUnit = useReactToPrint({
+    contentRef: unitPrintRef,
+    documentTitle: selectedUnitForPrint
+      ? `etiqueta-${selectedUnitForPrint.serial}`
+      : `etiqueta-${skuMaster}`,
+  })
 
   const handleFileChange = (e) => {
     const files = e.target.files
@@ -258,6 +273,54 @@ const FichaTecnicaModal = ({ product, onClose }) => {
               </tr>
             </tbody>
           </table>
+
+          <div className="ficha-unidades">
+            <h4 className="ficha-ubicacion__title">Unidades en Stock (Serializadas)</h4>
+            {unitRows.length === 0 ? (
+              <p className="ficha-ubicacion__summary">No hay unidades serializadas para este SKU.</p>
+            ) : (
+              <div className="product-table-wrapper">
+                <table className="product-table">
+                  <thead>
+                    <tr>
+                      <th>ID Unidad</th>
+                      <th>Serial</th>
+                      <th>Estado</th>
+                      <th>Etiqueta</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {unitRows.map((u) => (
+                      <tr key={u.id_unidad ?? u.id}>
+                        <td>{u.id_unidad}</td>
+                        <td>{u.serial}</td>
+                        <td>{u.estado ?? u.status ?? '—'}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="product-list__ficha-btn"
+                            onClick={() => {
+                              setSelectedUnitForPrint(u)
+                              setTimeout(() => handlePrintUnit(), 0)
+                            }}
+                          >
+                            Imprimir etiqueta
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="ficha-unit-print-hide">
+              {selectedUnitForPrint && (
+                <div ref={unitPrintRef}>
+                  <PrintableLabel item={selectedUnitForPrint} />
+                </div>
+              )}
+            </div>
+          </div>
 
           <div className="ficha-ubicacion ficha-cantidad-stock">
             <h4 className="ficha-ubicacion__title">Ajuste de Cantidad</h4>

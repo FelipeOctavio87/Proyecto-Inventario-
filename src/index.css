@@ -15,6 +15,82 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Ingreso y Etiquetado (DataMatrix unitario) */
+.ingreso__controls {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.labels-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.label-item {
+  width: 50mm;
+  min-height: 30mm;
+  border: 1px solid #cfd4dc;
+  border-radius: 4px;
+  background: #fff;
+  color: #111827;
+  padding: 3mm;
+  display: grid;
+  grid-template-columns: 20mm 1fr;
+  column-gap: 2mm;
+  align-items: start;
+}
+
+.label-item__matrix canvas {
+  width: 18mm;
+  height: 18mm;
+}
+
+.label-item__meta {
+  font-size: 9px;
+  line-height: 1.25;
+}
+
+.label-item__name {
+  margin: 0 0 2px;
+  font-weight: 600;
+  font-size: 10px;
+}
+
+.label-item__meta p {
+  margin: 0 0 2px;
+}
+
+@media (max-width: 768px) {
+  .ingreso__controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .app__header,
+  .import__title,
+  .import__subtitle,
+  .import__block:not(:has(.labels-grid)),
+  .import__collab-actions,
+  .import__count-block {
+    display: none !important;
+  }
+
+  .labels-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 50mm);
+    gap: 2mm;
+  }
+
+  .label-item {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
 body {
   margin: 0;
   min-width: 320px;

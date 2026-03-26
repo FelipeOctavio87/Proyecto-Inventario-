@@ -53,6 +53,12 @@ const formatDate = (iso) => {
   }
 }
 
+const extractSerialFromUnitId = (unitId) => {
+  const s = String(unitId ?? '').trim()
+  const m = s.match(/\(21\)(.+)$/)
+  return m ? m[1].trim() : ''
+}
+
 /**
  * Fecha calendario YYYY-MM-DD en zona Chile para un instante ISO.
  * Devuelve null si la fecha es inválida (evita RangeError en formatToParts y pantalla en blanco).
@@ -147,6 +153,7 @@ const TrazabilidadPage = () => {
   const [validationError, setValidationError] = useState('')
 
   const [movementSearch, setMovementSearch] = useState('')
+  const [movementUnitSearch, setMovementUnitSearch] = useState('')
   const [dateDesde, setDateDesde] = useState(() => getDefaultLast7DaysRange().desde)
   const [dateHasta, setDateHasta] = useState(() => getDefaultLast7DaysRange().hasta)
   const [dateFilterAll, setDateFilterAll] = useState(false)
@@ -354,6 +361,20 @@ const TrazabilidadPage = () => {
       list = list.filter((m) => String(m.type ?? '') === movementTypeFilter)
     }
 
+    const uq = String(movementUnitSearch ?? '').trim().toLowerCase()
+    if (uq) {
+      list = list.filter((m) => {
+        const unitId = String(m.unitId ?? '').toLowerCase()
+        const serial = String(m.serial ?? '').toLowerCase()
+        const serialFromUnitId = extractSerialFromUnitId(m.unitId).toLowerCase()
+        return (
+          unitId.includes(uq) ||
+          serial.includes(uq) ||
+          serialFromUnitId.includes(uq)
+        )
+      })
+    }
+
     return [...list].sort((a, b) => {
       const ta = new Date(a.date).getTime()
       const tb = new Date(b.date).getTime()
@@ -371,6 +392,7 @@ const TrazabilidadPage = () => {
     dateHasta,
     movementSearch,
     movementTypeFilter,
+    movementUnitSearch,
     productById,
   ])
 
@@ -631,6 +653,20 @@ const TrazabilidadPage = () => {
                 ))}
               </select>
             </div>
+            <div className="trazabilidad__filters-row">
+              <label className="product-list__filter-label" htmlFor="traz-unidad">
+                ID unidad / Serial
+              </label>
+              <input
+                id="traz-unidad"
+                type="search"
+                className="product-list__filter-input trazabilidad__filters-search"
+                placeholder="Ej. (01)SKU(21)..."
+                value={movementUnitSearch}
+                onChange={(e) => setMovementUnitSearch(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
             <div className="trazabilidad__filters-row trazabilidad__filters-row--dates">
               <div className="trazabilidad__filters-date">
                 <label className="product-list__filter-label" htmlFor="traz-desde">
@@ -715,6 +751,7 @@ const TrazabilidadPage = () => {
                     <th>Tipo</th>
                     <th>Origen</th>
                     <th>Retail</th>
+                    <th>ID unidad</th>
                     <th>Variación</th>
                     <th>Stock (antes → después)</th>
                     <th>Responsable</th>
@@ -730,6 +767,7 @@ const TrazabilidadPage = () => {
                       <td>{MOVEMENT_TYPE_LABELS[m.type] ?? m.type}</td>
                       <td className="trazabilidad__origin">{getMovementOriginLabel(m)}</td>
                       <td>{m.retail ?? '—'}</td>
+                      <td className="trazabilidad__sku-cell">{m.unitId ?? '—'}</td>
                       <td className={m.quantityDelta > 0 ? 'trazabilidad__delta--pos' : 'trazabilidad__delta--neg'}>
                         {m.quantityDelta > 0 ? '+' : ''}{m.quantityDelta}
                       </td>

@@ -19,6 +19,7 @@ import {
   barcodesMatchForManualAdjust,
   isBarcodeEligibleForManualAdjust,
 } from '../utils/barcodeManualAdjust'
+import { createUniqueSerial, createSerializedUnit } from '../utils/datamatrixUnit'
 
 const labelEstadoVerificacion = (code) => ESTADO_VERIFICACION[code] ?? String(code ?? '—')
 
@@ -53,10 +54,32 @@ const normalizeUbicacionFisica = (value) => {
   return DEFAULT_UBICACION_FISICA
 }
 
+const UNIT_STORAGE_KEY = 'inventory_units'
+
+const readUnitsFromLocalStorage = () => {
+  try {
+    const raw = window.localStorage.getItem(UNIT_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+const writeUnitsToLocalStorage = (items) => {
+  try {
+    window.localStorage.setItem(UNIT_STORAGE_KEY, JSON.stringify(items))
+  } catch {
+    // ignore quota/private mode errors
+  }
+}
+
 export const InventoryProvider = ({ children }) => {
   const [products, setProducts] = useState(initialProducts)
   const [movements, setMovements] = useState([])
   const [auditEvents, setAuditEvents] = useState([])
+  const [unitItems, setUnitItems] = useState([])
   const [persistenceHydrated, setPersistenceHydrated] = useState(false)
   const saveTimerRef = useRef(null)
 
@@ -70,6 +93,9 @@ export const InventoryProvider = ({ children }) => {
       if (Array.isArray(data.products)) setProducts(data.products)
       if (Array.isArray(data.movements)) setMovements(data.movements)
       if (Array.isArray(data.auditEvents)) setAuditEvents(data.auditEvents)
+      if (Array.isArray(data.unitItems)) setUnitItems(data.unitItems)
+      const unitsLs = readUnitsFromLocalStorage()
+      if (Array.isArray(unitsLs)) setUnitItems(unitsLs)
       setPersistenceHydrated(true)
     })
     return () => {
@@ -81,12 +107,17 @@ export const InventoryProvider = ({ children }) => {
     if (!persistenceHydrated) return
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
-      savePersistedInventory({ products, movements, auditEvents })
+      savePersistedInventory({ products, movements, auditEvents, unitItems })
     }, 500)
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
-  }, [products, movements, auditEvents, persistenceHydrated])
+  }, [products, movements, auditEvents, unitItems, persistenceHydrated])
+
+  useEffect(() => {
+    if (!persistenceHydrated) return
+    writeUnitsToLocalStorage(unitItems)
+  }, [unitItems, persistenceHydrated])
 
   const logAuditEvent = useCallback((partialEvent) => {
     setAuditEvents((prev) => [
@@ -433,6 +464,33 @@ export const InventoryProvider = ({ children }) => {
         })
       }
 
+      // Explosión unitaria para trazabilidad serializada desde CSV (inventario inicial / actualización).
+      if (rows.length > 0) {
+        setUnitItems((prev) => {
+          const existingSerials = new Set(prev.map((u) => String(u.serial ?? '')).filter(Boolean))
+          const generated = []
+          rows.forEach((row) => {
+            const sku = String(row.codigoInventario ?? row.sku ?? '').trim()
+            const qty = Math.max(0, Number(row.quantity) || 0)
+            const productName = String(row.name ?? '').trim()
+            if (!sku || qty <= 0) return
+            for (let i = 0; i < qty; i += 1) {
+              const serial = createUniqueSerial(existingSerials)
+              existingSerials.add(serial)
+              generated.push(
+                createSerializedUnit({
+                  sku,
+                  serial,
+                  productName,
+                  status: 'Disponible - Inventario Inicial',
+                })
+              )
+            }
+          })
+          return [...prev, ...generated]
+        })
+      }
+
       const modeLabel = overwrite ? 'Inventario inicial (sobrescritura)' : 'Actualización masiva (merge por SKU)'
       const detailParts = overwrite
         ? [`${summary.newCount} bien(es) cargado(s)`]
@@ -487,6 +545,7 @@ export const InventoryProvider = ({ children }) => {
       })
       setProducts(initialProducts)
       setMovements([])
+      setUnitItems([])
     },
     [logAuditEvent]
   )
@@ -693,7 +752,7 @@ export const InventoryProvider = ({ children }) => {
   }, [])
 
   const addMovement = useCallback(
-    (productId, { type, delta, responsible, reason, retail, date }) => {
+    (productId, { type, delta, responsible, reason, retail, date, unitId }) => {
       if (!productId || delta === 0) return
       const product = products.find((p) => p.id === productId)
       if (!product) return
@@ -708,6 +767,7 @@ export const InventoryProvider = ({ children }) => {
         productId: product.id,
         productName: product.name,
         codigoInventario: product.codigoInventario ?? product.sku,
+        unitId: unitId ? String(unitId) : null,
         type,
         quantityDelta: deltaNum,
         quantityBefore: currentQty,
@@ -798,16 +858,101 @@ export const InventoryProvider = ({ children }) => {
     [products]
   )
 
+  /**
+   * Genera y persiste unidades serializadas para etiquetado DataMatrix.
+   * @param {{ productId: number|string, quantity: number|string, actorEmail?: string }} params
+   * @returns {{ ok: boolean, items?: Array<Record<string, unknown>>, reason?: string }}
+   */
+  const generateUnitItems = useCallback(
+    ({ productId, quantity, actorEmail }) => {
+      const pid = Number(productId)
+      const qty = Math.max(0, Number(quantity) || 0)
+      if (!pid || qty <= 0) return { ok: false, reason: 'Parámetros inválidos.' }
+      const product = products.find((p) => p.id === pid)
+      if (!product) return { ok: false, reason: 'Producto no encontrado.' }
+
+      const sku = String(product.codigoInventario ?? product.sku ?? '').trim()
+      if (!sku) return { ok: false, reason: 'El producto no tiene SKU/GTIN válido.' }
+
+      const existingSerials = new Set(unitItems.map((u) => String(u.serial ?? '')).filter(Boolean))
+      const nowIso = new Date().toISOString()
+      const actor = String(actorEmail || '').trim() || 'Felipe Rebolledo'
+
+      const newItems = Array.from({ length: qty }).map(() => {
+        const serial = createUniqueSerial(existingSerials)
+        existingSerials.add(serial)
+        return createSerializedUnit({
+          sku,
+          serial,
+          productId: pid,
+          productName: product.name,
+          status: 'Disponible',
+          ingresoAt: nowIso,
+        })
+      })
+
+      setUnitItems((prev) => [...prev, ...newItems])
+      logAuditEvent({
+        usuario: actor,
+        accion: 'Generación de etiquetas DataMatrix',
+        actionType: 'DATAMATRIX_LABEL_GENERATE',
+        targetSku: sku,
+        sku,
+        reversible: false,
+        detalle: `Se generaron ${newItems.length} etiqueta(s) unitarias para "${product.name}" (${sku}).`,
+        metadata: {
+          quantity: newItems.length,
+          productId: pid,
+        },
+      })
+
+      return { ok: true, items: newItems }
+    },
+    [products, unitItems, logAuditEvent]
+  )
+
+  const getAvailableUnitsBySku = useCallback(
+    (sku) => {
+      const skuStr = String(sku ?? '').trim()
+      if (!skuStr) return []
+      return unitItems.filter(
+        (u) =>
+          String(u.sku_maestro ?? u.sku ?? '').trim() === skuStr &&
+          String(u.estado ?? u.status ?? '').toLowerCase().includes('disponible')
+      )
+    },
+    [unitItems]
+  )
+
+  const updateUnitStatus = useCallback((unitId, nextStatus) => {
+    if (!unitId || !nextStatus) return false
+    let changed = false
+    setUnitItems((prev) =>
+      prev.map((u) => {
+        if (String(u.id_unidad ?? u.id) !== String(unitId) && String(u.id) !== String(unitId)) return u
+        changed = true
+        return {
+          ...u,
+          estado: nextStatus,
+          status: nextStatus,
+        }
+      })
+    )
+    return changed
+  }, [])
+
   const resetToInitial = useCallback(() => {
     setProducts(initialProducts)
     setMovements([])
     setAuditEvents([])
+    setUnitItems([])
   }, [])
 
   const value = {
     products,
     movements,
     auditEvents,
+    unitItems,
     addBienesFromImport,
     vaciarInventario,
     addProduct,
@@ -816,6 +961,9 @@ export const InventoryProvider = ({ children }) => {
     clearAllProductImages,
     addMovement,
     registerReturnNewSku,
+    generateUnitItems,
+    getAvailableUnitsBySku,
+    updateUnitStatus,
     logAuditEvent,
     revertAuditEvent,
     resetToInitial,

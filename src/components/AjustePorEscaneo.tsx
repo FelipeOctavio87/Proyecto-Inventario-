@@ -8,6 +8,7 @@ import {
   type BarcodeLookupResponse,
   type AjustePorEscaneoPayload,
 } from '../api/trazabilidadScanApi'
+import { parseGs1LikeDataMatrix } from '../utils/datamatrixUnit'
 
 const MOTIVO_OPTIONS = [
   { id: 'venta_retail', label: 'Venta retail' },
@@ -40,7 +41,7 @@ const inputClass = 'product-list__filter-input'
 
 export default function AjustePorEscaneo() {
   const { user } = useAuth()
-  const { products, addMovement, logAuditEvent } = useInventory()
+  const { products, addMovement, logAuditEvent, unitItems, getAvailableUnitsBySku, updateUnitStatus } = useInventory()
 
   const [producto, setProducto] = useState<ProductoEscaneado | null>(null)
   const [loadingLookup, setLoadingLookup] = useState(false)
@@ -60,6 +61,9 @@ export default function AjustePorEscaneo() {
   const [dispositivo, setDispositivo] = useState(() =>
     (import.meta.env.VITE_SCANNER_DEVICE_ID ?? '').trim()
   )
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null)
+  const [genericModalOpen, setGenericModalOpen] = useState(false)
+  const [genericProductSku, setGenericProductSku] = useState('')
 
   const abortLookupRef = useRef<AbortController | null>(null)
   const abortSubmitRef = useRef<AbortController | null>(null)
@@ -88,6 +92,63 @@ export default function AjustePorEscaneo() {
 
   const handleBarcode = useCallback(
     async (code: string) => {
+      const parsedDm = parseGs1LikeDataMatrix(code)
+      if (parsedDm) {
+        const unit = (unitItems || []).find(
+          (u) =>
+            String(u.id_unidad ?? '').trim() === parsedDm.id_unidad &&
+            String(u.estado ?? u.status ?? '').toLowerCase().includes('disponible')
+        )
+        if (!unit) {
+          setError('DataMatrix unitario no disponible o no encontrado.')
+          return
+        }
+        const productLocal = products.find(
+          (p) => String(p.codigoInventario ?? p.sku ?? '').trim() === parsedDm.sku
+        )
+        if (!productLocal) {
+          setError(`No existe producto local para SKU ${parsedDm.sku}.`)
+          return
+        }
+        setSelectedUnitId(String(unit.id_unidad ?? unit.id))
+        setSuccess(`Unidad detectada correctamente: ${parsedDm.serial}`)
+        setError(null)
+        setProducto({
+          sku: String(productLocal.codigoInventario ?? productLocal.sku ?? ''),
+          nombre: productLocal.name,
+          stockActual: Number(productLocal.quantity) || 0,
+          barcode: String(productLocal.barcode ?? ''),
+          imagenUrl: '',
+        } as ProductoEscaneado)
+        return
+      }
+
+      if (/^\d{8,}$/.test(String(code).trim())) {
+        const p = products.find((it) => {
+          const sku = String(it.codigoInventario ?? it.sku ?? '').trim()
+          const barcode = String(it.barcode ?? '').trim()
+          return sku === code.trim() || barcode === code.trim()
+        })
+        if (p) {
+          const sku = String(p.codigoInventario ?? p.sku ?? '').trim()
+          const available = getAvailableUnitsBySku(sku)
+          if (available.length > 0) {
+            setGenericProductSku(sku)
+            setGenericModalOpen(true)
+            setProducto({
+              sku,
+              nombre: p.name,
+              stockActual: Number(p.quantity) || 0,
+              barcode: String(p.barcode ?? ''),
+              imagenUrl: '',
+            } as ProductoEscaneado)
+            setSuccess(`Producto detectado: ${p.name}. Seleccione una unidad serializada.`)
+            setError(null)
+            return
+          }
+        }
+      }
+
       abortLookupRef.current?.abort()
       const ac = new AbortController()
       abortLookupRef.current = ac
@@ -95,6 +156,7 @@ export default function AjustePorEscaneo() {
       setError(null)
       setSuccess(null)
       setProducto(null)
+      setSelectedUnitId(null)
       resetCamposAjuste()
       setLoadingLookup(true)
 
@@ -113,7 +175,7 @@ export default function AjustePorEscaneo() {
         setLoadingLookup(false)
       }
     },
-    [resetCamposAjuste]
+    [resetCamposAjuste, unitItems, products, getAvailableUnitsBySku]
   )
 
   const { inputRef, onKeyDown, focusInput } = useBarcodeListener({ onBarcode: handleBarcode })
@@ -215,6 +277,7 @@ export default function AjustePorEscaneo() {
           responsible: responsibleStr,
           reason: reasonParts.join(' · '),
           date: payload.fecha,
+          unitId: selectedUnitId,
         })
 
         logAuditEvent({
@@ -231,10 +294,18 @@ export default function AjustePorEscaneo() {
           estadoNuevo: { quantity: afterQty, version: baseVersion + 1 },
           reversible: true,
         })
+        if (selectedUnitId) {
+          const nextStatus =
+            tipoAjuste === 'salida'
+              ? 'Vendida'
+              : 'Seleccionada'
+          updateUnitStatus(selectedUnitId, nextStatus)
+        }
       }
 
       setSuccess('Ajuste registrado correctamente.')
       setProducto(null)
+      setSelectedUnitId(null)
       resetCamposAjuste()
       setFuncionario('')
       focusInput()
@@ -247,6 +318,8 @@ export default function AjustePorEscaneo() {
       setLoadingSubmit(false)
     }
   }
+
+  const genericUnits = genericProductSku ? getAvailableUnitsBySku(genericProductSku) : []
 
   return (
     <div className="trazabilidad__form-block product-list__filter-card mt-10">
@@ -466,6 +539,60 @@ export default function AjustePorEscaneo() {
             {loadingSubmit ? 'Registrando…' : 'Registrar ajuste'}
           </button>
         </form>
+      )}
+
+      {genericModalOpen && (
+        <div className="import__modal-overlay" role="dialog" aria-modal="true" aria-label="Seleccionar serial">
+          <div className="import__modal import__modal--purge">
+            <h3>Producto detectado: {producto?.nombre}</h3>
+            <p>Has escaneado un código genérico. Selecciona manualmente un serial disponible:</p>
+            {genericUnits.length === 0 ? (
+              <p>No hay seriales disponibles para este SKU.</p>
+            ) : (
+              <div className="product-table-wrapper">
+                <table className="product-table">
+                  <thead>
+                    <tr>
+                      <th>ID Unidad</th>
+                      <th>Serial</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {genericUnits.slice(0, 50).map((u) => (
+                      <tr key={u.id_unidad ?? u.id}>
+                        <td>{u.id_unidad}</td>
+                        <td>{u.serial}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="product-list__ficha-btn"
+                            onClick={() => {
+                              setSelectedUnitId(String(u.id_unidad ?? u.id))
+                              setGenericModalOpen(false)
+                              setSuccess(`Unidad seleccionada manualmente: ${u.serial}`)
+                            }}
+                          >
+                            Seleccionar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="import__modal-actions">
+              <button
+                type="button"
+                className="import__btn import__btn--secondary"
+                onClick={() => setGenericModalOpen(false)}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

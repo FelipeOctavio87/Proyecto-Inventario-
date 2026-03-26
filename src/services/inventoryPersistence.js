@@ -24,7 +24,7 @@ const openDb = () =>
   })
 
 /**
- * @returns {Promise<{ products: unknown[], movements: unknown[], auditEvents: unknown[] } | null>}
+ * @returns {Promise<{ products: unknown[], movements: unknown[], auditEvents: unknown[], unitItems?: unknown[] } | null>}
  */
 export async function loadPersistedInventory() {
   try {
@@ -45,7 +45,7 @@ export async function loadPersistedInventory() {
 }
 
 /**
- * @param {{ products: unknown[], movements: unknown[], auditEvents: unknown[] }} snapshot
+ * @param {{ products: unknown[], movements: unknown[], auditEvents: unknown[], unitItems?: unknown[] }} snapshot
  */
 export async function savePersistedInventory(snapshot) {
   try {
